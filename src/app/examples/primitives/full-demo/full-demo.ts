@@ -3,19 +3,21 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  effect,
   inject,
 } from '@angular/core';
 import {
-  asyncMethod,
+  asyncProcess,
   insertLocalStoragePersister,
   insertPaginationPlaceholderData,
   insertReactOnMutation,
   mutation,
   query,
   queryParam,
+  reactiveWritableSignal,
+  removeMany,
+  removeOne,
   state,
-} from '@ng-angular-stack/craft';
+} from '@craft-ng/core';
 import { StatusComponent } from '../../../ui/status.component';
 import { ApiService, User } from './api.service';
 
@@ -204,7 +206,7 @@ export default class FullDemo {
     },
   });
 
-  protected readonly delayUserDeletion = asyncMethod({
+  protected readonly delayUserDeletion = asyncProcess({
     method: (payload: { user: User; action: 'delete' | 'cancel' }) => payload,
     identifier: ({ user: { id } }) => id,
     loader: async ({ params: { user, action } }) => {
@@ -219,7 +221,7 @@ export default class FullDemo {
   protected readonly deleteUser = mutation({
     fromResourceById: this.delayUserDeletion._resourceById,
     params: (resource) => {
-      const value = resource?.hasValue() ? resource?.value() : undefined;
+      const value = resource?.safeValue();
       return value
         ? {
             ...value,
@@ -228,7 +230,10 @@ export default class FullDemo {
         : undefined;
     },
     identifier: ({ id }) => id,
-    loader: ({ params: user }) => this.apiService.updateItem(user),
+    loader: ({ params: user }) => {
+      console.log('mutation loader user', user);
+      return this.apiService.updateItem(user);
+    },
   });
 
   protected readonly usersQuery = query(
@@ -245,33 +250,68 @@ export default class FullDemo {
     insertPaginationPlaceholderData,
     insertReactOnMutation(this.deleteUser, {
       filter: ({ mutationIdentifier, queryResource }) =>
-        queryResource.hasValue() &&
-        (queryResource.value().some((item) => item.id === mutationIdentifier) ||
-          queryResource.value().length === 0),
+        !!queryResource
+          .safeValue()
+          ?.some((item) => item.id === mutationIdentifier),
       optimisticUpdate: ({ queryResource, mutationIdentifier }) =>
-        queryResource.value()?.filter((item) => item.id !== mutationIdentifier),
+        removeOne({
+          entities: queryResource.value(),
+          id: mutationIdentifier,
+        }),
+      reload: {
+        onMutationError: true,
+      },
+    }),
+    insertReactOnMutation(this.deleteUser, {
+      filter: ({ queryResource }) => queryResource.safeValue()?.length === 0,
       reload: {
         // reload the current page if there is no more data after mutation
-        onMutationResolved: ({ queryResource }) =>
-          queryResource.hasValue() && queryResource.value().length === 0,
+        onMutationResolved: true,
       },
     }),
     insertReactOnMutation(this.bulkDelete, {
-      filter: ({ queryResource }) => queryResource.hasValue(),
+      filter: ({ queryResource }) =>
+        (queryResource.safeValue()?.length ?? 0) > 0,
       optimisticUpdate: ({ queryResource, mutationParams }) =>
-        queryResource
-          .value()
-          ?.filter((item) => !mutationParams.includes(item.id)),
+        removeMany({
+          entities: queryResource.value(),
+          ids: mutationParams,
+        }),
+      reload: {
+        onMutationError: true,
+      },
+    }),
+    insertReactOnMutation(this.bulkDelete, {
+      filter: ({ queryResource }) => queryResource.safeValue()?.length === 0,
       reload: {
         // reload the current page if there is no more data after mutation
         onMutationResolved: ({ queryResource }) =>
-          queryResource.hasValue() && queryResource.value().length === 0,
+          queryResource.safeValue()?.length === 0,
       },
     }),
   );
 
   protected readonly selectedRows = state(
-    [] as string[],
+    reactiveWritableSignal([] as string[], (sync) => ({
+      resetWhenCurrentPageIsResolved: sync(
+        this.usersQuery.currentPageStatus,
+        ({ params, current }) => (params === 'resolved' ? [] : current),
+      ),
+      resetWhenBulkDeleteIsResolved: sync(
+        this.bulkDelete.status,
+        ({ params, current }) => (params === 'resolved' ? [] : current),
+      ),
+      removeDeletedItemsWhenDeleteUserIsResolved: sync(
+        this.delayUserDeletion.changes.resolved,
+        ({ params: resolvedIds, current }) =>
+          resolvedIds.length > 0
+            ? removeMany({
+                entities: current,
+                ids: resolvedIds,
+              })
+            : current,
+      ),
+    })),
     ({ update, set, state: selectedRows }) => {
       const isAllSelected = computed(
         () =>
@@ -308,20 +348,6 @@ export default class FullDemo {
           }
         },
       };
-    },
-    ({ set }) => {
-      // their is some advanced patterns, where we can avoid to use effect (by using source)
-      const _resetWhenCurrentPageIsResolved = effect(() => {
-        if (this.usersQuery.currentPageStatus() === 'resolved') {
-          set([]);
-        }
-      });
-      const _resetWhenBulkDeleteIsResolved = effect(() => {
-        if (this.bulkDelete.status() === 'resolved') {
-          set([]);
-        }
-      });
-      return {};
     },
   );
 

@@ -7,7 +7,7 @@ import {
   mutation,
   query,
   queryParam,
-} from '@ng-angular-stack/craft';
+} from '@craft-ng/core';
 import { StatusComponent } from '../../../ui/status.component';
 import { ApiService, User } from './api.service';
 
@@ -167,8 +167,9 @@ export default class GranularMutation {
     insertPaginationPlaceholderData,
     insertReactOnMutation(this.updateUserName, {
       filter: ({ mutationIdentifier, queryResource }) =>
-        queryResource.hasValue() &&
-        queryResource.value().some((item) => item.id === mutationIdentifier),
+        queryResource
+          .safeValue()
+          ?.some((item) => item.id === mutationIdentifier) ?? false,
       optimisticUpdate: ({
         queryResource,
         mutationIdentifier,

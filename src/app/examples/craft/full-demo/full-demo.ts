@@ -1,27 +1,25 @@
 import { CommonModule } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
 import {
   craft,
   craftInject,
   craftQueryParam,
   craftMutations,
-  craftAsyncMethods,
+  craftAsyncProcesses,
   craftQuery,
   craftState,
   insertLocalStoragePersister,
   insertPaginationPlaceholderData,
   insertReactOnMutation,
-  asyncMethod,
+  asyncProcess,
   mutation,
   query,
   queryParam,
   state,
-} from '@ng-angular-stack/craft';
+  removeOne,
+  removeMany,
+  reactiveWritableSignal,
+} from '@craft-ng/core';
 import { StatusComponent } from '../../../ui/status.component';
 import { ApiService, User } from './api.service';
 
@@ -70,8 +68,8 @@ const { injectFullDemoCraft, provideFullDemoCraft } = craft(
       },
     }),
   })),
-  craftAsyncMethods(() => ({
-    delayUserDeletion: asyncMethod({
+  craftAsyncProcesses(() => ({
+    delayUserDeletion: asyncProcess({
       method: (payload: { user: User; action: 'delete' | 'cancel' }) => payload,
       identifier: ({ user: { id } }) => id,
       loader: async ({ params: { user, action } }) => {
@@ -87,7 +85,7 @@ const { injectFullDemoCraft, provideFullDemoCraft } = craft(
     deleteUser: mutation({
       fromResourceById: delayUserDeletion._resourceById,
       params: (resource) => {
-        const value = resource?.hasValue() ? resource?.value() : undefined;
+        const value = resource?.safeValue();
         return value
           ? {
               ...value,
@@ -113,38 +111,64 @@ const { injectFullDemoCraft, provideFullDemoCraft } = craft(
       insertPaginationPlaceholderData,
       insertReactOnMutation(deleteUser, {
         filter: ({ mutationIdentifier, queryResource }) =>
-          queryResource.hasValue() &&
-          (queryResource
-            .value()
-            .some((item) => item.id === mutationIdentifier) ||
-            queryResource.value().length === 0),
+          !!queryResource
+            .safeValue()
+            ?.some((item) => item.id === mutationIdentifier),
         optimisticUpdate: ({ queryResource, mutationIdentifier }) =>
-          queryResource
-            .value()
-            ?.filter((item) => item.id !== mutationIdentifier),
+          removeOne({
+            entities: queryResource.value(),
+            id: mutationIdentifier,
+          }),
+        reload: {
+          onMutationError: true,
+        },
+      }),
+      insertReactOnMutation(deleteUser, {
+        filter: ({ queryResource }) => queryResource.safeValue()?.length === 0,
         reload: {
           // reload the current page if there is no more data after mutation
-          onMutationResolved: ({ queryResource }) =>
-            queryResource.hasValue() && queryResource.value().length === 0,
+          onMutationResolved: true,
         },
       }),
       insertReactOnMutation(bulkDelete, {
-        filter: ({ queryResource }) => queryResource.hasValue(),
+        filter: ({ queryResource }) =>
+          (queryResource.safeValue()?.length ?? 0) > 0,
         optimisticUpdate: ({ queryResource, mutationParams }) =>
-          queryResource
-            .value()
-            ?.filter((item) => !mutationParams.includes(item.id)),
+          removeMany({
+            entities: queryResource.value(),
+            ids: mutationParams,
+          }),
+      }),
+      insertReactOnMutation(bulkDelete, {
+        filter: ({ queryResource }) => queryResource.safeValue()?.length === 0,
         reload: {
-          // reload the current page if there is no more data after mutation
-          onMutationResolved: ({ queryResource }) =>
-            queryResource.hasValue() && queryResource.value().length === 0,
+          onMutationResolved: true,
         },
       }),
     ),
   ),
-  craftState('selectedRows', ({ users, bulkDelete }) =>
+  craftState('selectedRows', ({ users, bulkDelete, deleteUser }) =>
     state(
-      [] as string[],
+      reactiveWritableSignal([] as string[], (sync) => ({
+        resetWhenCurrentPageIsResolved: sync(
+          users.currentPageStatus,
+          ({ params, current }) => (params === 'resolved' ? [] : current),
+        ),
+        resetWhenBulkDeleteIsResolved: sync(
+          bulkDelete.status,
+          ({ params, current }) => (params === 'resolved' ? [] : current),
+        ),
+        removeDeletedItemsWhenDeleteUserIsResolved: sync(
+          deleteUser.changes.resolved,
+          ({ params: resolvedIds, current }) =>
+            resolvedIds.length > 0
+              ? removeMany({
+                  entities: current,
+                  ids: resolvedIds,
+                })
+              : current,
+        ),
+      })),
       ({ update, set, state: selectedRows }) => {
         const isAllSelected = computed(
           () =>
@@ -181,20 +205,6 @@ const { injectFullDemoCraft, provideFullDemoCraft } = craft(
             }
           },
         };
-      },
-      ({ set }) => {
-        // their is some advanced patterns, where we can avoid to use effect (by using source)
-        const _resetWhenCurrentPageIsResolved = effect(() => {
-          if (users.currentPageStatus() === 'resolved') {
-            set([]);
-          }
-        });
-        const _resetWhenBulkDeleteIsResolved = effect(() => {
-          if (bulkDelete.status() === 'resolved') {
-            set([]);
-          }
-        });
-        return {};
       },
     ),
   ),
