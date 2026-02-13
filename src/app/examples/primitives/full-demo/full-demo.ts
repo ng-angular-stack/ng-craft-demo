@@ -11,11 +11,13 @@ import {
   insertPaginationPlaceholderData,
   insertReactOnMutation,
   mutation,
+  on$,
   query,
   queryParam,
   reactiveWritableSignal,
   removeMany,
   removeOne,
+  source$,
   state,
 } from '@craft-ng/core';
 import { StatusComponent } from '../../../ui/status.component';
@@ -34,7 +36,9 @@ import { ApiService, User } from './api.service';
               <app-status [status]="usersQuery.currentPageStatus()" />
             </h2>
 
-            <div style="margin-bottom: 16px">
+            <div
+              style="margin-bottom: 16px;display: flex; gap: 8px; align-items: center"
+            >
               <button
                 class="action-btn"
                 [disabled]="
@@ -45,6 +49,9 @@ import { ApiService, User } from './api.service';
               >
                 Bulk Delete Selected Users ({{ selectedRows().length || '-' }})
                 <app-status [status]="bulkDelete.status()" />
+              </button>
+              <button class="action-btn reset-btn" (click)="reset$.emit()">
+                Reset Filters
               </button>
             </div>
 
@@ -174,6 +181,7 @@ import { ApiService, User } from './api.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class FullDemo {
+  protected readonly reset$ = source$<void>();
   protected readonly pagination = queryParam(
     {
       state: {
@@ -189,11 +197,12 @@ export default class FullDemo {
         },
       },
     },
-    ({ patch, state }) => ({
+    ({ patch, state, reset }) => ({
       nextPage: () => patch({ page: state().page + 1 }),
       previousPage: () => patch({ page: state().page - 1 }),
       updatePageSize: (newPageSize: number) =>
         patch({ pageSize: newPageSize, page: 1 }),
+      reset: on$(this.reset$, () => reset()),
     }),
   );
   private readonly apiService = inject(ApiService);
@@ -244,7 +253,7 @@ export default class FullDemo {
         this.apiService.getDataList(pagination),
     },
     insertLocalStoragePersister({
-      storeName: 'demo-app',
+      storeName: 'demo-app-full-demo',
       key: 'granular',
     }),
     insertPaginationPlaceholderData,
@@ -312,43 +321,44 @@ export default class FullDemo {
             : current,
       ),
     })),
-    ({ update, set, state: selectedRows }) => {
-      const isAllSelected = computed(
+    ({ state: selectedRows }) => ({
+      isAllSelected: computed(
         () =>
           this.usersQuery.currentPageData()?.length &&
           this.usersQuery
             .currentPageData()
             ?.every((user) => selectedRows().includes(user.id)),
-      );
-      return {
-        toggleSelection: (id: string) =>
-          update((current) =>
-            current.includes(id)
-              ? current.filter((item) => item !== id)
-              : [...current, id],
-          ),
-        isSelected: (id: string) => {
-          return selectedRows().includes(id);
-        },
-        isAllSelected,
-        isSomeSelected: computed(
-          () =>
-            this.usersQuery
-              .currentPageData()
-              ?.some((user) => selectedRows().includes(user.id)) &&
-            !isAllSelected(),
+      ),
+    }),
+    ({ update, set, state: selectedRows, insertions: { isAllSelected } }) => ({
+      toggleSelection: (id: string) =>
+        update((current) =>
+          current.includes(id)
+            ? current.filter((item) => item !== id)
+            : [...current, id],
         ),
-        toggleAllSelection: () => {
-          if (isAllSelected()) {
-            set([]);
-          } else {
-            const allIds =
-              this.usersQuery.currentPageData()?.map((user) => user.id) || [];
-            set(allIds);
-          }
-        },
-      };
-    },
+      isSelected: (id: string) => {
+        return selectedRows().includes(id);
+      },
+      isAllSelected,
+      isSomeSelected: computed(
+        () =>
+          this.usersQuery
+            .currentPageData()
+            ?.some((user) => selectedRows().includes(user.id)) &&
+          !isAllSelected(),
+      ),
+      toggleAllSelection: () => {
+        if (isAllSelected()) {
+          set([]);
+        } else {
+          const allIds =
+            this.usersQuery.currentPageData()?.map((user) => user.id) || [];
+          set(allIds);
+        }
+      },
+      reset: on$(this.reset$, () => set([])),
+    }),
   );
 
   protected updatePageSize(event: Event) {
