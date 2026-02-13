@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "update": "npm i @ng-angular-stack/craft@latest"
+    "update": "npm i @craft-ng/core@latest"
   },
   "prettier": {
     "printWidth": 100,
@@ -30,7 +30,7 @@
     "@angular/forms": "^21.1.0",
     "@angular/platform-browser": "^21.1.0",
     "@angular/router": "^21.1.0",
-    "@craft-ng/core": "^0.0.1",
+    "@craft-ng/core": "^0.0.2",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
