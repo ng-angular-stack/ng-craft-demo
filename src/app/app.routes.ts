@@ -28,6 +28,24 @@ export const appRoutes: Route[] = [
     loadComponent: () => import('./examples/primitives/full-demo/full-demo'),
   },
   {
+    path: 'pixel-art',
+    loadComponent: () => import('./examples/primitives/pixel-art/pixel-art'),
+  },
+  {
+    path: 'pixel-art-matrix',
+    loadComponent: () =>
+      import('./examples/primitives/pixel-art-matrix/pixel-art-matrix'),
+  },
+  {
+    path: 'exceptions',
+    loadComponent: () => import('./examples/primitives/exceptions/exceptions'),
+  },
+  {
+    path: 'exception-query-param',
+    loadComponent: () =>
+      import('./examples/primitives/exceptions/exception-query-param'),
+  },
+  {
     path: 'craft/query/:userId',
     loadComponent: () => import('./examples/craft/query/query'),
   },
@@ -48,5 +66,14 @@ export const appRoutes: Route[] = [
   {
     path: 'craft/full-demo',
     loadComponent: () => import('./examples/craft/full-demo/full-demo'),
+  },
+  {
+    path: 'login-form',
+    loadComponent: () => import('./examples/primitives/forms/login-form'),
+  },
+  {
+    path: 'team-invitations',
+    loadComponent: () =>
+      import('./examples/primitives/forms/team-invitations'),
   },
 ];

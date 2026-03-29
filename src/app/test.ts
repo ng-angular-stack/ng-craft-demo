@@ -1,12 +1,23 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, computed, effect, signal } from '@angular/core';
+import { FormField } from '@angular/forms/signals';
 import {
+  cAsyncValidate,
+  cEmail,
   craft,
+  craftException,
   craftQueryParams,
   craftSources,
+  cRequired,
+  insertForm,
+  insertFormAttributes,
+  insertNoopTypingAnchor,
+  insertSelectFormTree,
+  query,
   queryParam,
   signalSource,
   source$,
+  state,
 } from '@craft-ng/core';
 
 const { craftGenericQueryParams } = craft(
@@ -72,15 +83,128 @@ const { injectHost1Craft } = craft(
 @Component({
   selector: 'app-test',
   standalone: true,
-  imports: [CommonModule],
-  template: ` page: {{ store.pagePage() | json }}
+  imports: [CommonModule, FormField],
+  template: `
+    page: {{ store.pagePage() | json }}
     <button (click)="store.emitReset()">Reset page</button
     ><button (click)="store.emitGoTo(5)">Go to page 5</button> ---- page:
     {{ store1.pagePage() | json }}
     <button (click)="store1.setReset({})">Reset page</button
-    ><button (click)="store1.setGoTo(5)">Go to page 5</button>`,
+    ><button (click)="store1.setGoTo(5)">Go to page 5</button>
+    <br />
+    @for (item of pState(); track $index) {
+      <br />
+      {{ item() | json }}
+      <input
+        type="text"
+        [value]="item().text"
+        (input)="item.search($event.target.value)"
+      />
+    }
+    <button (click)="pState.add()">Add</button>
+
+    <input [formField]="loginStateWithForm.form().selectPassword()" />
+    {{ loginStateWithForm.form().selectPassword()().exceptions().list | json }}
+
+    <hr />
+  `,
 })
 export default class TestComponent {
   store = injectHostCraft();
   store1 = injectHost1Craft();
+
+  instance = (page: number) =>
+    state(
+      {
+        page,
+        text: '',
+      },
+      ({ state, update }) => ({
+        pageNumber: computed(() => state().page),
+        search: (text: string) => update((v) => ({ ...v, text })),
+      }),
+    );
+
+  pState = state([this.instance(1)], ({ state, update }) => ({
+    child: computed(() => state()),
+    add: () => update((v) => [...v, this.instance(v.length + 1)]),
+  }));
+
+  test = state(
+    {
+      myProperty: 1,
+    },
+    ({ state }) => {
+      effect(() => {
+        console.log('state', state());
+      });
+      return {};
+    },
+  );
+
+  checkEmailValidity = query({
+    method: (payload: { name: string; password: string; id: string }) => {
+      debugger;
+      return payload.name === 'errorParams'
+        ? craftException({ code: 'INVALID_EMAIL' })
+        : payload;
+    },
+    // identifier: (payload) => payload.id,
+    loader: async ({ params }) => {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      return params.name === 'errorLoader'
+        ? craftException({ code: 'LOADER_ERROR' })
+        : { email: params };
+    },
+  });
+
+  loginStateWithForm = state(
+    {
+      id: 1,
+      name: '1',
+      password: '',
+    },
+    insertForm(
+      insertSelectFormTree(
+        'password',
+        insertNoopTypingAnchor,
+        insertFormAttributes(() => ({
+          validators: [
+            cRequired(),
+            cAsyncValidate(this.checkEmailValidity, {
+              name: 'emailValidator',
+            }),
+          ],
+        })),
+      ),
+    ),
+  );
+
+  shouldFail = signal(false);
+}
+
+function t() {
+  const userFormState = state(
+    { name: '', email: '' },
+    insertForm(
+      insertSelectFormTree(
+        'name',
+        insertNoopTypingAnchor,
+        insertFormAttributes(() => ({
+          validators: [cRequired()],
+        })),
+      ),
+      insertSelectFormTree(
+        'email',
+        insertNoopTypingAnchor,
+        insertFormAttributes(() => ({
+          validators: [cRequired(), cEmail()],
+        })),
+      ),
+    ),
+  );
+
+  const form = userFormState.form();
+  const nameField = form.selectName();
+  const emailField = form.selectEmail();
 }
