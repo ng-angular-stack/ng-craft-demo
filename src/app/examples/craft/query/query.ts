@@ -1,45 +1,42 @@
 import { CommonModule } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  inject,
-  input,
-} from '@angular/core';
-import { ApiService } from './api.service';
-import { Router } from '@angular/router';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ApiServiceToYield } from './api.service';
+import { provideRouter, Router } from '@angular/router';
 import { StatusComponent } from '../../../ui/status.component';
 import {
-  craft,
-  craftInject,
-  craftInputs,
-  craftQuery,
+  craftService,
+  toCraftService,
   insertLocalStoragePersister,
   query,
+  toValue,
+  type MaybeSignal,
 } from '@craft-ng/core';
 
-const { injectUserCraft } = craft(
-  {
-    name: 'user',
-    providedIn: 'root',
-  },
-  craftInputs({
-    userId: undefined as string | undefined,
-  }),
-  craftInject(() => ({
-    ApiService,
-  })),
-  craftQuery('user', ({ userId, apiService }) =>
-    query(
+const { injectCraftRouter } = toCraftService({
+  name: 'CraftRouter',
+  scope: 'manuallyProvidedAtRoot',
+  token: Router,
+  provide: provideRouter,
+});
+
+const { injectUserQuery } = craftService(
+  { name: 'UserQuery', scope: 'global' },
+  function* (inputs: { userId: MaybeSignal<string | undefined> }) {
+    const { getItemById } = yield* ApiServiceToYield({}, ({ getItemById }) => ({
+      getItemById,
+    }));
+
+    return query(
       {
-        params: userId,
-        loader: ({ params: userId }) => apiService.getItemById(userId),
+        params: () => toValue(inputs.userId),
+        loader: ({ params: userId }) => getItemById(userId),
       },
       insertLocalStoragePersister({
         storeName: 'demo-app-craft',
         key: 'user-query',
       }),
-    ),
-  ),
+    );
+  },
 );
 
 @Component({
@@ -50,11 +47,11 @@ const { injectUserCraft } = craft(
   template: `
     <div>
       User
-      <app-status [status]="store.user.status()" />
+      <app-status [status]="user.status()" />
 
       :
-      @if (store.user.hasValue()) {
-        <pre>{{ store.user.value() | json }}</pre>
+      @if (user.hasValue()) {
+        <pre>{{ user.value() | json }}</pre>
       }
     </div>
 
@@ -71,12 +68,12 @@ const { injectUserCraft } = craft(
 export default class GlobalQuery {
   public readonly userId = input<string>();
 
-  private readonly router = inject(Router);
+  private readonly router = injectCraftRouter(undefined, ({ navigate }) => ({
+    navigate,
+  }));
 
-  protected readonly store = injectUserCraft({
-    inputs: {
-      userId: this.userId,
-    },
+  protected readonly user = injectUserQuery({
+    userId: this.userId,
   });
 
   protected nextPage() {

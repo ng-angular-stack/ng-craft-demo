@@ -1,51 +1,46 @@
 import { CommonModule } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  inject,
-  input,
-} from '@angular/core';
-import { ApiService, User } from './api.service';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ApiServiceToYield, type User } from './api.service';
 import { Router } from '@angular/router';
 import { StatusComponent } from '../../../ui/status.component';
 import {
-  craft,
-  craftInject,
-  craftInputs,
-  craftQuery,
-  craftMutations,
+  craftService,
+  toCraftService,
   insertLocalStoragePersister,
   insertReactOnMutation,
   query,
   mutation,
+  toValue,
+  type MaybeSignal,
 } from '@craft-ng/core';
 
-const { injectUserCraft } = craft(
-  {
-    name: 'user',
-    providedIn: 'root',
-  },
-  craftInputs({
-    userId: undefined as string | undefined,
-  }),
-  craftInject(() => ({
-    ApiService,
-  })),
-  craftMutations(({ apiService }) => ({
-    updateUserName: mutation({
+const { injectRouter } = toCraftService({
+  name: 'Router',
+  scope: 'global',
+  token: Router,
+});
+
+const { injectUserMutation } = craftService(
+  { name: 'UserMutation', scope: 'global' },
+  function* (inputs: { userId: MaybeSignal<string | undefined> }) {
+    const { getItemById, updateItem } = yield* ApiServiceToYield(
+      {},
+      ({ getItemById, updateItem }) => ({ getItemById, updateItem }),
+    );
+
+    const updateUserName = mutation({
       method: (payload: { userName: string; user: User }) => ({
         ...payload.user,
         name: payload.userName,
       }),
-      loader: ({ params: user }) => apiService.updateItem(user),
-    }),
-  })),
-  craftQuery('user', ({ userId, apiService, updateUserName }) =>
-    query(
+      loader: ({ params: user }) => updateItem(user),
+    });
+
+    const user = query(
       {
-        params: userId,
-        loader: ({ params: userId }) => apiService.getItemById(userId),
-        preservePreviousValue: () => true, // keep the previous user display while the new one fetching
+        params: () => toValue(inputs.userId),
+        loader: ({ params: userId }) => getItemById(userId),
+        preservePreviousValue: () => true,
       },
       insertLocalStoragePersister({
         storeName: 'demo-app-craft',
@@ -56,8 +51,10 @@ const { injectUserCraft } = craft(
           name: ({ mutationParams: { name } }) => name,
         },
       }),
-    ),
-  ),
+    );
+
+    return { user, updateUserName };
+  },
 );
 
 @Component({
@@ -95,12 +92,12 @@ const { injectUserCraft } = craft(
 export default class MutationCraft {
   public readonly userId = input<string>();
 
-  private readonly router = inject(Router);
+  private readonly router = injectRouter(undefined, ({ navigate }) => ({
+    navigate,
+  }));
 
-  protected readonly store = injectUserCraft({
-    inputs: {
-      userId: this.userId,
-    },
+  protected readonly store = injectUserMutation({
+    userId: this.userId,
   });
 
   protected updateUserNameFn(newName: string) {
@@ -108,7 +105,7 @@ export default class MutationCraft {
     if (!user) {
       return;
     }
-    this.store.mutateUpdateUserName({ userName: newName, user });
+    this.store.updateUserName.mutate({ userName: newName, user });
   }
 
   protected nextPage() {
