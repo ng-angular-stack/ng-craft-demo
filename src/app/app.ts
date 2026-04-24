@@ -1,6 +1,17 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
-import { GlobalPersisterHandlerService } from '@craft-ng/core';
+import {
+  GlobalPersisterHandlerService,
+  brandAngularSymbol,
+  deps,
+  toCraftService,
+} from '@craft-ng/core';
+
+const { injectGlobalPersisterHandlerService } = toCraftService({
+  name: 'GlobalPersisterHandlerService',
+  scope: 'global',
+  token: GlobalPersisterHandlerService,
+});
 
 @Component({
   imports: [RouterModule],
@@ -8,49 +19,30 @@ import { GlobalPersisterHandlerService } from '@craft-ng/core';
   template: `
     <div class="app-container">
       <nav class="tabs">
-        <a
-          routerLink="/"
-          routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: true }"
+        <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
           >Test</a
         >
         <a routerLink="/query/1" routerLinkActive="active">Query</a>
         <a routerLink="/mutation/1" routerLinkActive="active">Mutation</a>
-        <a routerLink="/list-with-pagination" routerLinkActive="active"
-          >List with Pagination</a
-        >
-        <a routerLink="/granular-mutation" routerLinkActive="active"
-          >Granular Mutation</a
-        >
+        <a routerLink="/list-with-pagination" routerLinkActive="active">List with Pagination</a>
+        <a routerLink="/granular-mutation" routerLinkActive="active">Granular Mutation</a>
         <a routerLink="/full-demo" routerLinkActive="active">Full Demo</a>
         <a routerLink="/pixel-art" routerLinkActive="active">Pixel Art</a>
-        <a routerLink="/pixel-art-matrix" routerLinkActive="active"
-          >Pixel Art Matrix</a
-        >
+        <a routerLink="/pixel-art-matrix" routerLinkActive="active">Pixel Art Matrix</a>
         <a routerLink="/exceptions" routerLinkActive="active">Exceptions</a>
         <a routerLink="/login-form" routerLinkActive="active">Login Form</a>
-        <a routerLink="/team-invitations" routerLinkActive="active"
-          >Team Invitations</a
-        >
-        <a routerLink="/exception-query-param" routerLinkActive="active"
-          >Exception QueryParam</a
-        >
+        <a routerLink="/team-invitations" routerLinkActive="active">Team Invitations</a>
+        <a routerLink="/exception-query-param" routerLinkActive="active">Exception QueryParam</a>
         <a routerLink="/craft/query/1" routerLinkActive="active">Craft Query</a>
-        <a routerLink="/craft/mutation/1" routerLinkActive="active"
-          >Craft Mutation</a
-        >
+        <a routerLink="/craft/mutation/1" routerLinkActive="active">Craft Mutation</a>
         <a routerLink="/craft/list-with-pagination" routerLinkActive="active"
           >Craft List Pagination</a
         >
         <a routerLink="/craft/granular-mutation" routerLinkActive="active"
           >Craft Granular Mutation</a
         >
-        <a routerLink="/craft/full-demo" routerLinkActive="active"
-          >Craft Full Demo</a
-        >
-        <a routerLink="/craft-service/counter" routerLinkActive="active"
-          >craftService Counter</a
-        >
+        <a routerLink="/craft/full-demo" routerLinkActive="active">Craft Full Demo</a>
+        <a routerLink="/craft-service/counter" routerLinkActive="active">craftService Counter</a>
         <a routerLink="/craft-service/user-detail" routerLinkActive="active"
           >craftService User Detail</a
         >
@@ -59,9 +51,7 @@ import { GlobalPersisterHandlerService } from '@craft-ng/core';
       <main class="content">
         <router-outlet></router-outlet>
       </main>
-      <button class="clear-cache-btn" (click)="clearCache()">
-        🗑️ Clear Cache
-      </button>
+      <button class="clear-cache-btn" (click)="clearCache()">🗑️ Clear Cache</button>
     </div>
   `,
   styles: `
@@ -236,8 +226,8 @@ import { GlobalPersisterHandlerService } from '@craft-ng/core';
     }
   `,
 })
-export class App {
-  private readonly persisterHandler = inject(GlobalPersisterHandlerService);
+class App {
+  private readonly persisterHandler = injectGlobalPersisterHandlerService();
 
   clearCache() {
     this.persisterHandler.clearAllCache();
@@ -245,3 +235,12 @@ export class App {
     window.location.reload();
   }
 }
+
+export default brandAngularSymbol(
+  App,
+  deps({
+    injected: [injectGlobalPersisterHandlerService],
+    importDeps: [RouterModule],
+    providers: [],
+  }),
+);

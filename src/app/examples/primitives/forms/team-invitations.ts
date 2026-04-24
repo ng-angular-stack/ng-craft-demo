@@ -19,8 +19,7 @@ import {
   insertFormAttributes,
   insertNoopTypingAnchor,
   insertSelectFormTree,
-  state,
-} from '@craft-ng/core';
+  state, brandAngularSymbol, deps } from '@craft-ng/core';
 import {
   injectInvitationValidationService,
   InvitationRole,
@@ -337,7 +336,7 @@ function insertInvitationAsyncValidation(validationService: {
     </div>
   `,
 })
-export default class TeamInvitationsComponent {
+class TeamInvitationsComponent {
   private nextInvitationId = INITIAL_INVITATIONS.length + 1;
   private readonly invitationValidationService =
     injectInvitationValidationService();
@@ -482,3 +481,5 @@ export default class TeamInvitationsComponent {
     }
   }
 }
+
+export default brandAngularSymbol(TeamInvitationsComponent, deps({ injected: [injectInvitationValidationService], importDeps: [CommonModule, FormField], providers: [] }));

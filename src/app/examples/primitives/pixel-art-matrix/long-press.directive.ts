@@ -1,4 +1,7 @@
+/* eslint-disable brand-angular-deps/no-direct-angular-class-export */
+
 import { Directive, EventEmitter, HostListener, Input, Output } from '@angular/core';
+import { brandAngularSymbol, deps } from '@craft-ng/core';
 
 @Directive({
   selector: '[appLongPress]',
@@ -52,3 +55,5 @@ export class LongPressDirective {
     this.timer = null;
   }
 }
+
+export default brandAngularSymbol(LongPressDirective, deps({ injected: [], importDeps: [], providers: [] }));

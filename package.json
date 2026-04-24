@@ -7,6 +7,12 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "lint:deps": "eslint \"src/**/*.ts\"",
+    "test:codemod": "vitest run tools/angular-brand-codemod.spec.ts",
+    "test:eslint-rule": "vitest run tools/eslint-rules/brand-angular-deps-match.spec.ts",
+    "test:eslint-export-rule": "vitest run tools/eslint-rules/no-direct-angular-class-export.spec.ts",
+    "test:eslint-angular-inject-rule": "vitest run tools/eslint-rules/no-angular-inject.spec.ts",
+    "codemod:angular-brand": "ts-node --project tools/tsconfig.codemod.json tools/angular-brand-codemod.ts",
     "update": "npm i @craft-ng/core@latest"
   },
   "prettier": {
@@ -34,10 +40,14 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
+    "@typescript-eslint/parser": "^8.46.2",
     "@angular/build": "^21.2.0",
     "@angular/cli": "^21.2.0",
     "@angular/compiler-cli": "^21.2.0",
+    "eslint": "^9.39.1",
     "jsdom": "^27.1.0",
+    "ts-morph": "^28.0.0",
+    "ts-node": "^10.9.2",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8"
   }

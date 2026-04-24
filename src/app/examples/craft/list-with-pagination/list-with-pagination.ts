@@ -7,8 +7,7 @@ import {
   insertLocalStoragePersister,
   insertPaginationPlaceholderData,
   query,
-  queryParam,
-} from '@craft-ng/core';
+  queryParam, brandAngularSymbol, deps } from '@craft-ng/core';
 
 const { injectUserList, provideUserList } = craftService(
   { name: 'UserList', scope: 'toProvide' },
@@ -145,7 +144,7 @@ const { injectUserList, provideUserList } = craftService(
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [provideUserList()],
 })
-export default class ListWithPaginationCraft {
+class ListWithPaginationCraft {
   protected readonly store = injectUserList();
 
   protected updatePageSize(event: Event) {
@@ -153,3 +152,5 @@ export default class ListWithPaginationCraft {
     this.store.pagination.updatePageSize(value);
   }
 }
+
+export default brandAngularSymbol(ListWithPaginationCraft, deps({ injected: [injectUserList], importDeps: [CommonModule, StatusComponent], providers: [provideUserList] }));

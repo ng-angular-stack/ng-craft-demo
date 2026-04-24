@@ -8,6 +8,8 @@ import {
   mutation,
   query,
   queryParam,
+  brandAngularSymbol,
+  deps,
 } from '@craft-ng/core';
 import { StatusComponent } from '../../../ui/status.component';
 import { ApiServiceToYield, type User } from './api.service';
@@ -38,8 +40,7 @@ const { injectGranularMutation, provideGranularMutation } = craftService(
       ({ patch, state }) => ({
         nextPage: () => patch({ page: state().page + 1 }),
         previousPage: () => patch({ page: state().page - 1 }),
-        updatePageSize: (newPageSize: number) =>
-          patch({ pageSize: newPageSize, page: 1 }),
+        updatePageSize: (newPageSize: number) => patch({ pageSize: newPageSize, page: 1 }),
       }),
     );
 
@@ -65,14 +66,8 @@ const { injectGranularMutation, provideGranularMutation } = craftService(
       insertPaginationPlaceholderData,
       insertReactOnMutation(updateUserName, {
         filter: ({ mutationIdentifier, queryResource }) =>
-          queryResource
-            .safeValue()
-            ?.some((item) => item.id === mutationIdentifier) ?? false,
-        optimisticUpdate: ({
-          queryResource,
-          mutationIdentifier,
-          mutationParams,
-        }) => {
+          queryResource.safeValue()?.some((item) => item.id === mutationIdentifier) ?? false,
+        optimisticUpdate: ({ queryResource, mutationIdentifier, mutationParams }) => {
           return queryResource.value()?.map((item) => {
             return item.id === mutationIdentifier ? mutationParams : item;
           });
@@ -108,10 +103,7 @@ const { injectGranularMutation, provideGranularMutation } = craftService(
                 </thead>
                 <tbody>
                   @if (store.users.currentPageData()) {
-                    @for (
-                      user of store.users.currentPageData();
-                      track user.id
-                    ) {
+                    @for (user of store.users.currentPageData(); track user.id) {
                       <tr>
                         <td>{{ user.id }}</td>
 
@@ -121,22 +113,15 @@ const { injectGranularMutation, provideGranularMutation } = craftService(
                           <button
                             class="action-btn"
                             (click)="store.updateUserName.mutate(user)"
-                            [disabled]="
-                              store.updateUserName.select(user.id)?.isLoading()
-                            "
+                            [disabled]="store.updateUserName.select(user.id)?.isLoading()"
                           >
                             Update Name
                             @if (
                               store.updateUserName.select(user.id)?.status() &&
-                              store.updateUserName.select(user.id)?.status() !==
-                                'idle'
+                              store.updateUserName.select(user.id)?.status() !== 'idle'
                             ) {
                               <app-status
-                                [status]="
-                                  store.updateUserName
-                                    .select(user.id)
-                                    ?.status() ?? 'idle'
-                                "
+                                [status]="store.updateUserName.select(user.id)?.status() ?? 'idle'"
                               ></app-status>
                             }
                           </button>
@@ -145,21 +130,13 @@ const { injectGranularMutation, provideGranularMutation } = craftService(
                     } @empty {
                       @if (store.users.currentPageStatus() === 'resolved') {
                         <tr>
-                          <td
-                            colspan="4"
-                            style="text-align: center; padding: 32px"
-                          >
+                          <td colspan="4" style="text-align: center; padding: 32px">
                             No users found
                           </td>
                         </tr>
                       } @else {
                         <tr>
-                          <td
-                            colspan="4"
-                            style="text-align: center; padding: 32px"
-                          >
-                            Loading...
-                          </td>
+                          <td colspan="4" style="text-align: center; padding: 32px">Loading...</td>
                         </tr>
                       }
                     }
@@ -179,15 +156,11 @@ const { injectGranularMutation, provideGranularMutation } = craftService(
                 <option [value]="8">8</option>
                 <option [value]="16">16</option>
               </select>
-              <button class="btn" (click)="store.pagination.previousPage()">
-                Previous
-              </button>
+              <button class="btn" (click)="store.pagination.previousPage()">Previous</button>
               <span class="current-page">
                 {{ store.pagination().page }}
               </span>
-              <button class="btn" (click)="store.pagination.nextPage()">
-                Next
-              </button>
+              <button class="btn" (click)="store.pagination.nextPage()">Next</button>
             </div>
           </div>
         </div>
@@ -198,7 +171,7 @@ const { injectGranularMutation, provideGranularMutation } = craftService(
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [provideGranularMutation()],
 })
-export default class GranularMutationCraft {
+class GranularMutationCraft {
   protected readonly store = injectGranularMutation();
 
   protected updatePageSize(event: Event) {
@@ -206,3 +179,12 @@ export default class GranularMutationCraft {
     this.store.pagination.updatePageSize(value);
   }
 }
+
+export default brandAngularSymbol(
+  GranularMutationCraft,
+  deps({
+    injected: [injectGranularMutation],
+    importDeps: [CommonModule, StatusComponent],
+    providers: [provideGranularMutation],
+  }),
+);

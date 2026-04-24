@@ -6,8 +6,7 @@ import {
   insertReactOnMutation,
   mutation,
   query,
-  queryParam,
-} from '@craft-ng/core';
+  queryParam, brandAngularSymbol, deps } from '@craft-ng/core';
 import { StatusComponent } from '../../../ui/status.component';
 import { injectApiService, User } from './api.service';
 
@@ -118,7 +117,7 @@ import { injectApiService, User } from './api.service';
   styleUrls: ['./granular-mutation.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export default class GranularMutation {
+class GranularMutation {
   protected readonly pagination = queryParam(
     {
       state: {
@@ -187,3 +186,5 @@ export default class GranularMutation {
     this.pagination.updatePageSize(value);
   }
 }
+
+export default brandAngularSymbol(GranularMutation, deps({ injected: [injectApiService], importDeps: [CommonModule, StatusComponent], providers: [] }));

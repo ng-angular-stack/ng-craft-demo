@@ -4,8 +4,7 @@ import {
   query,
   toValue,
   type MaybeSignal,
-  state,
-} from '@craft-ng/core';
+  state, brandAngularSymbol, deps } from '@craft-ng/core';
 
 // -- Types --
 
@@ -164,7 +163,7 @@ const { injectUser, provideUser } = craftService(
     }
   `,
 })
-export default class CraftServiceUserDetailComponent {
+class CraftServiceUserDetailComponent {
   protected readonly userId = state(signal('1'), ({ set }) => ({
     setUserId: (event: Event | null) => {
       if (event) {
@@ -174,3 +173,5 @@ export default class CraftServiceUserDetailComponent {
   }));
   protected readonly user = injectUser({ userId: this.userId });
 }
+
+export default brandAngularSymbol(CraftServiceUserDetailComponent, deps({ injected: [injectUser], importDeps: [], providers: [provideUser] }));

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { craftService, state } from '@craft-ng/core';
+import { craftService, state, brandAngularSymbol, deps } from '@craft-ng/core';
 
 const { injectCounter, provideCounter } = craftService(
   { name: 'Counter', scope: 'toProvide' },
@@ -57,6 +57,8 @@ const { injectCounter, provideCounter } = craftService(
     }
   `,
 })
-export default class CraftServiceCounterComponent {
+class CraftServiceCounterComponent {
   protected readonly counter = injectCounter();
 }
+
+export default brandAngularSymbol(CraftServiceCounterComponent, deps({ injected: [injectCounter], importDeps: [], providers: [provideCounter] }));

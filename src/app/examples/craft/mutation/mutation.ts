@@ -11,8 +11,7 @@ import {
   query,
   mutation,
   toValue,
-  type MaybeSignal,
-} from '@craft-ng/core';
+  type MaybeSignal, brandAngularSymbol, deps } from '@craft-ng/core';
 
 const { injectRouter } = toCraftService({
   name: 'Router',
@@ -89,7 +88,7 @@ const { injectUserMutation } = craftService(
     </button>
   `,
 })
-export default class MutationCraft {
+class MutationCraft {
   public readonly userId = input<string>();
 
   private readonly router = injectRouter(undefined, ({ navigate }) => ({
@@ -124,3 +123,5 @@ export default class MutationCraft {
     ]);
   }
 }
+
+export default brandAngularSymbol(MutationCraft, deps({ injected: [injectRouter, injectUserMutation], importDeps: [CommonModule, StatusComponent], providers: [] }));

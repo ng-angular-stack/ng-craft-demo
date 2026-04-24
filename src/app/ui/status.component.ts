@@ -1,5 +1,8 @@
+/* eslint-disable brand-angular-deps/no-direct-angular-class-export */
+
 import { CommonModule } from '@angular/common';
 import { Component, input, ResourceStatus } from '@angular/core';
+import { brandAngularSymbol, deps } from '@craft-ng/core';
 
 @Component({
   selector: 'app-status',
@@ -136,3 +139,5 @@ import { Component, input, ResourceStatus } from '@angular/core';
 export class StatusComponent {
   readonly status = input.required<ResourceStatus | 'exception'>();
 }
+
+export default brandAngularSymbol(StatusComponent, deps({ injected: [], importDeps: [CommonModule], providers: [] }));
