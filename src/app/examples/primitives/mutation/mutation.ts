@@ -8,8 +8,7 @@ import {
   query,
   mutation,
   insertLocalStoragePersister,
-  insertReactOnMutation,
-} from '@craft-ng/core';
+  insertReactOnMutation, brandAngularSymbol, deps } from '@craft-ng/core';
 
 const { injectRouter } = toCraftService({
   name: 'Router',
@@ -49,7 +48,7 @@ const { injectRouter } = toCraftService({
     </button>
   `,
 })
-export default class GlobalQuery {
+class GlobalQuery {
   public readonly userId = input<string>();
   private readonly apiService = injectApiService();
 
@@ -98,3 +97,5 @@ export default class GlobalQuery {
     this.router.navigate(['mutation', parseInt(this.userId() ?? '10') - 1]);
   }
 }
+
+export default brandAngularSymbol(GlobalQuery, deps({ injected: [injectApiService, injectRouter], importDeps: [CommonModule, StatusComponent], providers: [] }));

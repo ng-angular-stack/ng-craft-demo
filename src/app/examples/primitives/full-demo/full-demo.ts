@@ -28,8 +28,7 @@ import {
   source$,
   state,
   updateOne,
-  ValidatedFormValue,
-} from '@craft-ng/core';
+  ValidatedFormValue, brandAngularSymbol, deps } from '@craft-ng/core';
 import { StatusComponent } from '../../../ui/status.component';
 import { injectApiService, User } from './api.service';
 
@@ -328,7 +327,7 @@ import { injectApiService, User } from './api.service';
   styleUrls: ['./full-demo.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export default class FullDemo {
+class FullDemo {
   protected readonly reset$ = source$<void>();
 
   protected readonly pagination = queryParam(
@@ -587,3 +586,5 @@ export default class FullDemo {
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+export default brandAngularSymbol(FullDemo, deps({ injected: [injectApiService], importDeps: [CommonModule, StatusComponent, FormField], providers: [] }));

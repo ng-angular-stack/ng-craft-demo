@@ -2,8 +2,7 @@ import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
 import {
   insertLocalStoragePersister,
   insertSelect,
-  state,
-} from '@craft-ng/core';
+  state, brandAngularSymbol, deps } from '@craft-ng/core';
 
 type PixelCellState = {
   index: number;
@@ -75,7 +74,7 @@ const CELL_INDEXES = Array.from(
   styleUrls: ['./pixel-art.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export default class PixelArt {
+class PixelArt {
   protected readonly totalCells = TOTAL_CELLS;
   protected readonly emptyColor = EMPTY_COLOR;
   protected readonly colorPalette = COLOR_PALETTE;
@@ -141,3 +140,5 @@ function initializePixelCells() {
       }) satisfies PixelCellState,
   );
 }
+
+export default brandAngularSymbol(PixelArt, deps({ injected: [], importDeps: [], providers: [] }));

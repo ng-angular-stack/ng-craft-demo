@@ -3,8 +3,7 @@ import {
   craftService,
   query,
   mutation,
-  insertReactOnMutation,
-} from '@craft-ng/core';
+  insertReactOnMutation, brandAngularSymbol, deps } from '@craft-ng/core';
 
 // -- Types --
 
@@ -232,7 +231,7 @@ const { injectPlayground } = craftService(
     }
   `,
 })
-export default class PlaygroundComponent {
+class PlaygroundComponent {
   protected readonly pg = injectPlayground();
 
   add(input: HTMLInputElement) {
@@ -242,3 +241,5 @@ export default class PlaygroundComponent {
     input.value = '';
   }
 }
+
+export default brandAngularSymbol(PlaygroundComponent, deps({ injected: [injectPlayground], importDeps: [], providers: [] }));

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, signal } from '@angular/core';
-import { craftException, query } from '@craft-ng/core';
+import { craftException, query, brandAngularSymbol, deps } from '@craft-ng/core';
 
 type User = {
   id: string;
@@ -95,7 +95,7 @@ type Scenario = 'success' | 'not-found' | 'consent-missing' | 'forbidden';
     }
   `,
 })
-export default class ExceptionsComponent {
+class ExceptionsComponent {
   private readonly scenario = signal<Scenario>('success');
 
   protected readonly userQuery = query({
@@ -139,3 +139,5 @@ export default class ExceptionsComponent {
     }
   }
 }
+
+export default brandAngularSymbol(ExceptionsComponent, deps({ injected: [], importDeps: [CommonModule], providers: [] }));

@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { toCraftService, craftException, queryParam } from '@craft-ng/core';
+import { toCraftService, craftException, queryParam, brandAngularSymbol, deps } from '@craft-ng/core';
 
 const { injectActivatedRoute } = toCraftService({
   name: 'ActivatedRoute',
@@ -82,7 +82,7 @@ const { injectRouter } = toCraftService({
     </section>
   `,
 })
-export default class ExceptionQueryParamComponent {
+class ExceptionQueryParamComponent {
   private readonly router = injectRouter(undefined, ({ navigate }) => ({
     navigate,
   }));
@@ -120,3 +120,5 @@ export default class ExceptionQueryParamComponent {
     });
   }
 }
+
+export default brandAngularSymbol(ExceptionQueryParamComponent, deps({ injected: [injectRouter, injectActivatedRoute], importDeps: [CommonModule], providers: [] }));

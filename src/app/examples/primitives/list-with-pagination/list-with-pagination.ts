@@ -6,8 +6,7 @@ import {
   insertLocalStoragePersister,
   insertPaginationPlaceholderData,
   query,
-  queryParam,
-} from '@craft-ng/core';
+  queryParam, brandAngularSymbol, deps } from '@craft-ng/core';
 
 @Component({
   selector: 'app-list-with-pagination',
@@ -91,7 +90,7 @@ import {
   styleUrls: ['./list-with-pagination.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export default class ListWithPagination {
+class ListWithPagination {
   protected readonly pagination = queryParam(
     {
       state: {
@@ -135,3 +134,5 @@ export default class ListWithPagination {
     this.pagination.updatePageSize(value);
   }
 }
+
+export default brandAngularSymbol(ListWithPagination, deps({ injected: [injectApiService], importDeps: [CommonModule, StatusComponent], providers: [] }));

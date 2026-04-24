@@ -10,6 +10,8 @@ import {
   query,
   toValue,
   type MaybeSignal,
+  brandAngularSymbol,
+  deps,
 } from '@craft-ng/core';
 
 const { injectCraftRouter } = toCraftService({
@@ -56,16 +58,14 @@ const { injectUserQuery } = craftService(
     </div>
 
     <div>
-      <p>
-        > Reload the page to see the query result to be retrieved from the cache
-      </p>
+      <p>> Reload the page to see the query result to be retrieved from the cache</p>
     </div>
 
     <button (click)="previousPage()">Previous user</button>
     <button (click)="nextPage()">Next user</button>
   `,
 })
-export default class GlobalQuery {
+class GlobalQuery {
   public readonly userId = input<string>();
 
   private readonly router = injectCraftRouter(undefined, ({ navigate }) => ({
@@ -77,18 +77,19 @@ export default class GlobalQuery {
   });
 
   protected nextPage() {
-    this.router.navigate([
-      'craft',
-      'query',
-      parseInt(this.userId() ?? '0') + 1,
-    ]);
+    this.router.navigate(['craft', 'query', parseInt(this.userId() ?? '0') + 1]);
   }
 
   protected previousPage() {
-    this.router.navigate([
-      'craft',
-      'query',
-      parseInt(this.userId() ?? '10') - 1,
-    ]);
+    this.router.navigate(['craft', 'query', parseInt(this.userId() ?? '10') - 1]);
   }
 }
+
+export default brandAngularSymbol(
+  GlobalQuery,
+  deps({
+    injected: [injectCraftRouter, injectUserQuery],
+    importDeps: [CommonModule, StatusComponent],
+    providers: [],
+  }),
+);

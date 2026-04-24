@@ -14,8 +14,7 @@ import {
   removeMany,
   reactiveWritableSignal,
   on$,
-  source$,
-} from '@craft-ng/core';
+  source$, brandAngularSymbol, deps } from '@craft-ng/core';
 import { StatusComponent } from '../../../ui/status.component';
 import { ApiServiceToYield, type User } from './api.service';
 
@@ -398,7 +397,7 @@ const { injectFullDemo, provideFullDemo } = craftService(
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [provideFullDemo()],
 })
-export default class FullDemoCraft {
+class FullDemoCraft {
   protected readonly store = injectFullDemo();
 
   protected updatePageSize(event: Event) {
@@ -406,3 +405,5 @@ export default class FullDemoCraft {
     this.store.pagination.updatePageSize(value);
   }
 }
+
+export default brandAngularSymbol(FullDemoCraft, deps({ injected: [injectFullDemo], importDeps: [CommonModule, StatusComponent], providers: [provideFullDemo] }));

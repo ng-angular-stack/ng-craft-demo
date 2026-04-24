@@ -6,8 +6,7 @@ import { StatusComponent } from '../../../ui/status.component';
 import {
   toCraftService,
   insertLocalStoragePersister,
-  query,
-} from '@craft-ng/core';
+  query, brandAngularSymbol, deps } from '@craft-ng/core';
 
 const { injectRouter } = toCraftService({
   name: 'Router',
@@ -41,7 +40,7 @@ const { injectRouter } = toCraftService({
     <button (click)="nextPage()">Next user</button>
   `,
 })
-export default class GlobalQuery {
+class GlobalQuery {
   public readonly userId = input<string>();
 
   private readonly apiService = injectApiService();
@@ -68,3 +67,5 @@ export default class GlobalQuery {
     this.router.navigate(['query', parseInt(this.userId() ?? '10') - 1]);
   }
 }
+
+export default brandAngularSymbol(GlobalQuery, deps({ injected: [injectApiService, injectRouter], importDeps: [CommonModule, StatusComponent], providers: [] }));

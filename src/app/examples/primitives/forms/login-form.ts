@@ -13,8 +13,7 @@ import {
   state,
   ValidatedFormValue,
   insertNoopTypingAnchor,
-  cMinLength,
-} from '@craft-ng/core';
+  cMinLength, brandAngularSymbol, deps } from '@craft-ng/core';
 
 type LoginData = {
   email: string;
@@ -210,7 +209,7 @@ type LoginData = {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export default class LoginFormComponent {
+class LoginFormComponent {
   private readonly loginMutation = mutation({
     method: (payload: NonNullable<ValidatedFormValue<LoginData>>) => payload,
     loader: async ({ params: credentials }) => {
@@ -252,3 +251,5 @@ export default class LoginFormComponent {
     ),
   );
 }
+
+export default brandAngularSymbol(LoginFormComponent, deps({ injected: [], importDeps: [CommonModule, FormField], providers: [] }));

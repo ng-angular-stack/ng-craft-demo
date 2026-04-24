@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
-import { craftService, MaybeSignal, state, toValue } from '@craft-ng/core';
+import { craftService, MaybeSignal, state, toValue, brandAngularSymbol, deps } from '@craft-ng/core';
 
 const { injectCounter } = craftService(
   { name: 'Counter', scope: 'function' },
@@ -27,7 +27,9 @@ const { injectCounter } = craftService(
     </div>
   `,
 })
-export default class TestComponent {
+class TestComponent {
   counter1 = injectCounter({ initialValue: 0 });
   counter2 = injectCounter({ initialValue: 200 });
 }
+
+export default brandAngularSymbol(TestComponent, deps({ injected: [injectCounter], importDeps: [CommonModule], providers: [] }));

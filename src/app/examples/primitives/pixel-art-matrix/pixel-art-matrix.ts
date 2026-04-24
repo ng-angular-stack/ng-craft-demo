@@ -10,8 +10,7 @@ import {
   insertSelect,
   on$,
   source$,
-  state,
-} from '@craft-ng/core';
+  state, brandAngularSymbol, deps } from '@craft-ng/core';
 import { LongPressDirective } from './long-press.directive';
 
 type PixelCellState = {
@@ -173,7 +172,7 @@ const createInitialGrid = (): PixelCellState[][] =>
   styleUrls: ['./pixel-art-matrix.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export default class PixelArtMatrix {
+class PixelArtMatrix {
   protected readonly emptyColor = EMPTY_COLOR;
   protected readonly colorPalette = COLOR_PALETTE;
 
@@ -305,3 +304,5 @@ function createNextRow(currentGrid: PixelCellState[][]) {
   }));
   return newRow;
 }
+
+export default brandAngularSymbol(PixelArtMatrix, deps({ injected: [], importDeps: [LongPressDirective], providers: [] }));
