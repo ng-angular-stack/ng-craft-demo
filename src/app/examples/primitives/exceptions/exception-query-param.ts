@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { toCraftService, craftException, queryParam } from '@craft-ng/core';
+import { craftException, queryParam, toCraftService, type DerivedService, type ExtractDeps, type GetDeps, type GetPublicComponentProperties, type GetServiceOutput } from '@craft-ng/core';
 
 const { injectActivatedRoute } = toCraftService({
   name: 'ActivatedRoute',
@@ -120,3 +120,27 @@ export default class ExceptionQueryParamComponent {
     });
   }
 }
+
+export type GenDeps_ExceptionQueryParamComponent = GetDeps<{
+      deps: {
+        CommonModule: CommonModule;
+      };
+      propertiesDeps: {
+        router: {
+            Router: DerivedService<ExtractDeps<typeof injectRouter>["Router"], {
+              derivedPropertiesUsed: {
+                navigate: GetServiceOutput<typeof injectRouter>["navigate"];
+              };
+              derivedPropertiesExposed: {
+                navigate: GetServiceOutput<typeof injectRouter>["navigate"];
+              };
+            }>;
+          };
+        activatedRoute: {
+            ActivatedRoute: ExtractDeps<typeof injectActivatedRoute>["ActivatedRoute"];
+          };
+        modeQueryParam: ExtractDeps<ExceptionQueryParamComponent["modeQueryParam"]>;
+      };
+      provided: {};
+      publicProperties: GetPublicComponentProperties<ExceptionQueryParamComponent>;
+    }>;

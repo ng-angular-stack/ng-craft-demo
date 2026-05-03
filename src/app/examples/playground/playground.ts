@@ -1,9 +1,12 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import {
-  craftService,
-  query,
-  mutation,
-  insertReactOnMutation,
+    craftService,
+    insertReactOnMutation,
+    mutation,
+    query,
+    type ExtractDeps,
+    type GetDeps,
+    type GetPublicComponentProperties
 } from '@craft-ng/core';
 
 // -- Types --
@@ -242,3 +245,14 @@ export default class PlaygroundComponent {
     input.value = '';
   }
 }
+
+export type GenDeps_PlaygroundComponent = GetDeps<{
+      deps: {};
+      propertiesDeps: {
+        pg: {
+            Playground: ExtractDeps<typeof injectPlayground>["Playground"];
+          };
+      };
+      provided: {};
+      publicProperties: GetPublicComponentProperties<PlaygroundComponent>;
+    }>;

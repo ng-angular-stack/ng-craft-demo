@@ -2,9 +2,12 @@ import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import {
   craftService,
   query,
-  toValue,
-  type MaybeSignal,
   state,
+  toValue,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
+  type MaybeSignal,
 } from '@craft-ng/core';
 
 // -- Types --
@@ -174,3 +177,17 @@ export default class CraftServiceUserDetailComponent {
   }));
   protected readonly user = injectUser({ userId: this.userId });
 }
+
+export type GenDeps_CraftServiceUserDetailComponent = GetDeps<{
+  deps: {};
+  propertiesDeps: {
+    userId: ExtractDeps<CraftServiceUserDetailComponent['userId']>;
+    user: {
+      User: ExtractDeps<typeof injectUser>['User'];
+    };
+  };
+  provided: {
+    User: ReturnType<typeof provideUser>;
+  };
+  publicProperties: GetPublicComponentProperties<CraftServiceUserDetailComponent>;
+}>;

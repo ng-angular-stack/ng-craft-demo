@@ -1,18 +1,21 @@
 import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  Signal,
+    ChangeDetectionStrategy,
+    Component,
+    computed,
+    Signal,
 } from '@angular/core';
 import {
-  addOne,
-  insertLocalStoragePersister,
-  insertSelect,
-  on$,
-  source$,
-  state,
+    addOne,
+    insertLocalStoragePersister,
+    insertSelect,
+    on$,
+    source$,
+    state,
+    type ExtractDeps,
+    type GetDeps,
+    type GetPublicComponentProperties
 } from '@craft-ng/core';
-import { LongPressDirective } from './long-press.directive';
+import { LongPressDirective, type GenDeps_LongPressDirective } from './long-press.directive';
 
 type PixelCellState = {
   index: number;
@@ -305,3 +308,16 @@ function createNextRow(currentGrid: PixelCellState[][]) {
   }));
   return newRow;
 }
+
+export type GenDeps_PixelArtMatrix = GetDeps<{
+      deps: {
+        GenDeps_LongPressDirective: GenDeps_LongPressDirective;
+      };
+      propertiesDeps: {
+        emptyColor: ExtractDeps<PixelArtMatrix["emptyColor"]>;
+        colorPalette: ExtractDeps<PixelArtMatrix["colorPalette"]>;
+        matrix: ExtractDeps<PixelArtMatrix["matrix"]>;
+      };
+      provided: {};
+      publicProperties: GetPublicComponentProperties<PixelArtMatrix>;
+    }>;

@@ -1,13 +1,16 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { injectApiService } from './api.service';
-import { StatusComponent } from '../../../ui/status.component';
 import {
-  insertLocalStoragePersister,
-  insertPaginationPlaceholderData,
-  query,
-  queryParam,
+    insertLocalStoragePersister,
+    insertPaginationPlaceholderData,
+    query,
+    queryParam,
+    type ExtractDeps,
+    type GetDeps,
+    type GetPublicComponentProperties
 } from '@craft-ng/core';
+import { StatusComponent, type GenDeps_StatusComponent } from '../../../ui/status.component';
+import { injectApiService } from './api.service';
 
 @Component({
   selector: 'app-list-with-pagination',
@@ -135,3 +138,19 @@ export default class ListWithPagination {
     this.pagination.updatePageSize(value);
   }
 }
+
+export type GenDeps_ListWithPagination = GetDeps<{
+      deps: {
+        CommonModule: CommonModule;
+        GenDeps_StatusComponent: GenDeps_StatusComponent;
+      };
+      propertiesDeps: {
+        pagination: ExtractDeps<ListWithPagination["pagination"]>;
+        apiService: {
+            ApiService: ExtractDeps<typeof injectApiService>["ApiService"];
+          };
+        usersQuery: ExtractDeps<ListWithPagination["usersQuery"]>;
+      };
+      provided: {};
+      publicProperties: GetPublicComponentProperties<ListWithPagination>;
+    }>;

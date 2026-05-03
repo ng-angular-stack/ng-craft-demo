@@ -1,23 +1,22 @@
-import { CommonModule } from '@angular/common';
+import { JsonPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { ApiServiceToYield } from './api.service';
-import { provideRouter, Router } from '@angular/router';
-import { StatusComponent } from '../../../ui/status.component';
 import {
+  craftMethod,
   craftService,
-  toCraftService,
   insertLocalStoragePersister,
   query,
   toValue,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
   type MaybeSignal,
 } from '@craft-ng/core';
-
-const { injectCraftRouter } = toCraftService({
-  name: 'CraftRouter',
-  scope: 'manuallyProvidedAtRoot',
-  token: Router,
-  provide: provideRouter,
-});
+import { CraftRouterToYield } from '../../../shared/router.service';
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
+import { ApiServiceToYield } from './api.service';
 
 const { injectUserQuery } = craftService(
   { name: 'UserQuery', scope: 'global' },
@@ -41,7 +40,7 @@ const { injectUserQuery } = craftService(
 
 @Component({
   selector: 'app-query',
-  imports: [CommonModule, StatusComponent],
+  imports: [JsonPipe, StatusComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['query.css'],
   template: `
@@ -68,27 +67,40 @@ const { injectUserQuery } = craftService(
 export default class GlobalQuery {
   public readonly userId = input<string>();
 
-  private readonly router = injectCraftRouter(undefined, ({ navigate }) => ({
-    navigate,
-  }));
-
   protected readonly user = injectUserQuery({
     userId: this.userId,
   });
 
-  protected nextPage() {
-    this.router.navigate([
-      'craft',
-      'query',
-      parseInt(this.userId() ?? '0') + 1,
-    ]);
-  }
+  protected nextPage = craftMethod(this, function* () {
+    const { navigate } = yield* CraftRouterToYield(
+      undefined,
+      ({ navigate }) => ({ navigate }),
+    );
+    navigate(['craft', 'query', parseInt(this.userId() ?? '0') + 1]);
+  });
 
-  protected previousPage() {
-    this.router.navigate([
-      'craft',
-      'query',
-      parseInt(this.userId() ?? '10') - 1,
-    ]);
-  }
+  protected previousPage = craftMethod(this, function* () {
+    const { navigate } = yield* CraftRouterToYield(
+      undefined,
+      ({ navigate }) => ({ navigate }),
+    );
+    navigate(['craft', 'query', parseInt(this.userId() ?? '10') - 1]);
+  });
 }
+
+export type GenDeps_GlobalQuery = GetDeps<{
+  deps: {
+    JsonPipe: JsonPipe;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+  };
+  propertiesDeps: {
+    userId: ExtractDeps<GlobalQuery['userId']>;
+    user: {
+      UserQuery: ExtractDeps<typeof injectUserQuery>['UserQuery'];
+    };
+    nextPage: ExtractDeps<GlobalQuery['nextPage']>;
+    previousPage: ExtractDeps<GlobalQuery['previousPage']>;
+  };
+  provided: {};
+  publicProperties: GetPublicComponentProperties<GlobalQuery>;
+}>;

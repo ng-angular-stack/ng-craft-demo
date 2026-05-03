@@ -1,14 +1,17 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { ApiServiceToYield } from './api.service';
-import { StatusComponent } from '../../../ui/status.component';
 import {
-  craftService,
-  insertLocalStoragePersister,
-  insertPaginationPlaceholderData,
-  query,
-  queryParam,
+    craftService,
+    insertLocalStoragePersister,
+    insertPaginationPlaceholderData,
+    query,
+    queryParam,
+    type ExtractDeps,
+    type GetDeps,
+    type GetPublicComponentProperties
 } from '@craft-ng/core';
+import { StatusComponent, type GenDeps_StatusComponent } from '../../../ui/status.component';
+import { ApiServiceToYield } from './api.service';
 
 const { injectUserList, provideUserList } = craftService(
   { name: 'UserList', scope: 'toProvide' },
@@ -153,3 +156,19 @@ export default class ListWithPaginationCraft {
     this.store.pagination.updatePageSize(value);
   }
 }
+
+export type GenDeps_ListWithPaginationCraft = GetDeps<{
+      deps: {
+        CommonModule: CommonModule;
+        GenDeps_StatusComponent: GenDeps_StatusComponent;
+      };
+      propertiesDeps: {
+        store: {
+            UserList: ExtractDeps<typeof injectUserList>["UserList"];
+          };
+      };
+      provided: {
+        UserList: ReturnType<typeof provideUserList>;
+      };
+      publicProperties: GetPublicComponentProperties<ListWithPaginationCraft>;
+    }>;

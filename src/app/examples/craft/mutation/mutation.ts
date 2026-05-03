@@ -1,65 +1,67 @@
-import { CommonModule } from '@angular/common';
+import { JsonPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { ApiServiceToYield, type User } from './api.service';
-import { Router } from '@angular/router';
-import { StatusComponent } from '../../../ui/status.component';
 import {
+  craftMethod,
   craftService,
-  toCraftService,
   insertLocalStoragePersister,
   insertReactOnMutation,
-  query,
   mutation,
+  query,
   toValue,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
   type MaybeSignal,
 } from '@craft-ng/core';
+import { CraftRouterToYield } from '../../../shared/router.service';
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
+import { ApiServiceToYield, type User } from './api.service';
 
-const { injectRouter } = toCraftService({
-  name: 'Router',
-  scope: 'global',
-  token: Router,
-});
+const { injectUserMutation, provideUserMutation, UserMutationToYield } =
+  craftService(
+    { name: 'UserMutation', scope: 'toProvide' },
+    function* (inputs: { userId: MaybeSignal<string | undefined> }) {
+      const { getItemById, updateItem } = yield* ApiServiceToYield(
+        {},
+        ({ getItemById, updateItem }) => ({ getItemById, updateItem }),
+      );
 
-const { injectUserMutation } = craftService(
-  { name: 'UserMutation', scope: 'global' },
-  function* (inputs: { userId: MaybeSignal<string | undefined> }) {
-    const { getItemById, updateItem } = yield* ApiServiceToYield(
-      {},
-      ({ getItemById, updateItem }) => ({ getItemById, updateItem }),
-    );
+      const updateUserName = mutation({
+        method: (payload: { userName: string; user: User }) => ({
+          ...payload.user,
+          name: payload.userName,
+        }),
+        loader: ({ params: user }) => updateItem(user),
+      });
 
-    const updateUserName = mutation({
-      method: (payload: { userName: string; user: User }) => ({
-        ...payload.user,
-        name: payload.userName,
-      }),
-      loader: ({ params: user }) => updateItem(user),
-    });
-
-    const user = query(
-      {
-        params: () => toValue(inputs.userId),
-        loader: ({ params: userId }) => getItemById(userId),
-        preservePreviousValue: () => true,
-      },
-      insertLocalStoragePersister({
-        storeName: 'demo-app-craft',
-        key: 'mutation',
-      }),
-      insertReactOnMutation(updateUserName, {
-        optimisticPatch: {
-          name: ({ mutationParams: { name } }) => name,
+      const user = query(
+        {
+          params: () => toValue(inputs.userId),
+          loader: ({ params: userId }) => getItemById(userId),
+          preservePreviousValue: () => true,
         },
-      }),
-    );
+        insertLocalStoragePersister({
+          storeName: 'demo-app-craft',
+          key: 'mutation',
+        }),
+        insertReactOnMutation(updateUserName, {
+          optimisticPatch: {
+            name: ({ mutationParams: { name } }) => name,
+          },
+        }),
+      );
 
-    return { user, updateUserName };
-  },
-);
+      return { user, updateUserName };
+    },
+  );
 
 @Component({
   selector: 'app-mutation',
-  imports: [CommonModule, StatusComponent],
+  imports: [JsonPipe, StatusComponent],
+  providers: [provideUserMutation()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['mutation.css'],
   template: `
@@ -92,35 +94,53 @@ const { injectUserMutation } = craftService(
 export default class MutationCraft {
   public readonly userId = input<string>();
 
-  private readonly router = injectRouter(undefined, ({ navigate }) => ({
-    navigate,
-  }));
-
   protected readonly store = injectUserMutation({
     userId: this.userId,
   });
 
-  protected updateUserNameFn(newName: string) {
-    const user = this.store.user.hasValue() ? this.store.user.value() : null;
-    if (!user) {
+  protected updateUserNameFn = craftMethod(function* (newName: string) {
+    const { user, updateUserName } = yield* UserMutationToYield(
+      undefined,
+      ({ user, updateUserName }) => ({ user, updateUserName }),
+    );
+    const userValue = user.hasValue() ? user.value() : null;
+    if (!userValue) {
       return;
     }
-    this.store.updateUserName.mutate({ userName: newName, user });
-  }
+    updateUserName.mutate({ userName: newName, user: userValue });
+  });
 
-  protected nextPage() {
-    this.router.navigate([
-      'craft',
-      'mutation',
-      parseInt(this.userId() ?? '0') + 1,
-    ]);
-  }
+  protected nextPage = craftMethod(this, function* () {
+    const router = yield* CraftRouterToYield(undefined, ({ navigate }) => ({
+      navigate,
+    }));
+    router.navigate(['craft', 'mutation', parseInt(this.userId() ?? '0') + 1]);
+  });
 
-  protected previousPage() {
-    this.router.navigate([
-      'craft',
-      'mutation',
-      parseInt(this.userId() ?? '10') - 1,
-    ]);
-  }
+  protected previousPage = craftMethod(this, function* () {
+    const router = yield* CraftRouterToYield(undefined, ({ navigate }) => ({
+      navigate,
+    }));
+    router.navigate(['craft', 'mutation', parseInt(this.userId() ?? '10') - 1]);
+  });
 }
+
+export type GenDeps_MutationCraft = GetDeps<{
+  deps: {
+    JsonPipe: JsonPipe;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+  };
+  propertiesDeps: {
+    userId: ExtractDeps<MutationCraft['userId']>;
+    store: {
+      UserMutation: ExtractDeps<typeof injectUserMutation>['UserMutation'];
+    };
+    updateUserNameFn: ExtractDeps<MutationCraft['updateUserNameFn']>;
+    nextPage: ExtractDeps<MutationCraft['nextPage']>;
+    previousPage: ExtractDeps<MutationCraft['previousPage']>;
+  };
+  provided: {
+    UserMutation: ReturnType<typeof provideUserMutation>;
+  };
+  publicProperties: GetPublicComponentProperties<MutationCraft>;
+}>;

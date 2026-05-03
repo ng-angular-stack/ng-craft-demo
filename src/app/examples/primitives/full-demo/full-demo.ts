@@ -29,8 +29,14 @@ import {
   state,
   updateOne,
   ValidatedFormValue,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
 } from '@craft-ng/core';
-import { StatusComponent } from '../../../ui/status.component';
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
 import { injectApiService, User } from './api.service';
 
 @Component({
@@ -587,3 +593,28 @@ export default class FullDemo {
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+export type GenDeps_FullDemo = GetDeps<{
+  deps: {
+    CommonModule: CommonModule;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+    FormField: FormField<any>;
+  };
+  propertiesDeps: {
+    reset$: ExtractDeps<FullDemo['reset$']>;
+    pagination: ExtractDeps<FullDemo['pagination']>;
+    apiService: {
+      ApiService: ExtractDeps<typeof injectApiService>['ApiService'];
+    };
+    bulkDelete: ExtractDeps<FullDemo['bulkDelete']>;
+    delayUserDeletion: ExtractDeps<FullDemo['delayUserDeletion']>;
+    deleteUser: ExtractDeps<FullDemo['deleteUser']>;
+    updateUserName: ExtractDeps<FullDemo['updateUserName']>;
+    usersQuery: ExtractDeps<FullDemo['usersQuery']>;
+    currentUsersPageResource: ExtractDeps<FullDemo['currentUsersPageResource']>;
+    usersByPage: ExtractDeps<FullDemo['usersByPage']>;
+    selectedRows: ExtractDeps<FullDemo['selectedRows']>;
+  };
+  provided: {};
+  publicProperties: GetPublicComponentProperties<FullDemo>;
+}>;

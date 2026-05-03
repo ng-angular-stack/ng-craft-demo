@@ -1,19 +1,20 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { injectApiService } from './api.service';
-import { Router } from '@angular/router';
-import { StatusComponent } from '../../../ui/status.component';
 import {
-  toCraftService,
   insertLocalStoragePersister,
   query,
+  type DerivedService,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
+  type GetServiceOutput,
 } from '@craft-ng/core';
-
-const { injectRouter } = toCraftService({
-  name: 'Router',
-  scope: 'global',
-  token: Router,
-});
+import { injectCraftRouter } from '../../../shared/router.service';
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
+import { injectApiService } from './api.service';
 
 @Component({
   selector: 'app-query',
@@ -45,7 +46,7 @@ export default class GlobalQuery {
   public readonly userId = input<string>();
 
   private readonly apiService = injectApiService();
-  private readonly router = injectRouter(undefined, ({ navigate }) => ({
+  private readonly router = injectCraftRouter(undefined, ({ navigate }) => ({
     navigate,
   }));
 
@@ -68,3 +69,32 @@ export default class GlobalQuery {
     this.router.navigate(['query', parseInt(this.userId() ?? '10') - 1]);
   }
 }
+
+export type GenDeps_GlobalQuery = GetDeps<{
+  deps: {
+    CommonModule: CommonModule;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+  };
+  propertiesDeps: {
+    userId: ExtractDeps<GlobalQuery['userId']>;
+    apiService: {
+      ApiService: ExtractDeps<typeof injectApiService>['ApiService'];
+    };
+    router: {
+      CraftRouter: DerivedService<
+        ExtractDeps<typeof injectCraftRouter>['CraftRouter'],
+        {
+          derivedPropertiesUsed: {
+            navigate: GetServiceOutput<typeof injectCraftRouter>['navigate'];
+          };
+          derivedPropertiesExposed: {
+            navigate: GetServiceOutput<typeof injectCraftRouter>['navigate'];
+          };
+        }
+      >;
+    };
+    userQuery: ExtractDeps<GlobalQuery['userQuery']>;
+  };
+  provided: {};
+  publicProperties: GetPublicComponentProperties<GlobalQuery>;
+}>;

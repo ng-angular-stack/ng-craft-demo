@@ -1,22 +1,28 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
 import {
+  asyncProcess,
   craftService,
   insertLocalStoragePersister,
   insertPaginationPlaceholderData,
   insertReactOnMutation,
-  asyncProcess,
   mutation,
+  on$,
   query,
   queryParam,
-  state,
-  removeOne,
-  removeMany,
   reactiveWritableSignal,
-  on$,
+  removeMany,
+  removeOne,
   source$,
+  state,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
 } from '@craft-ng/core';
-import { StatusComponent } from '../../../ui/status.component';
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
 import { ApiServiceToYield, type User } from './api.service';
 
 function wait(ms: number) {
@@ -406,3 +412,19 @@ export default class FullDemoCraft {
     this.store.pagination.updatePageSize(value);
   }
 }
+
+export type GenDeps_FullDemoCraft = GetDeps<{
+  deps: {
+    CommonModule: CommonModule;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+  };
+  propertiesDeps: {
+    store: {
+      FullDemo: ExtractDeps<typeof injectFullDemo>['FullDemo'];
+    };
+  };
+  provided: {
+    FullDemo: ReturnType<typeof provideFullDemo>;
+  };
+  publicProperties: GetPublicComponentProperties<FullDemoCraft>;
+}>;

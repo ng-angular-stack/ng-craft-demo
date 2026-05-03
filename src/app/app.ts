@@ -1,6 +1,14 @@
-import { Component, inject } from '@angular/core';
-import { RouterModule } from '@angular/router';
-import { GlobalPersisterHandlerService } from '@craft-ng/core';
+import { Component } from '@angular/core';
+import { RouterModule, type Router } from '@angular/router';
+import {
+    BrowserLocation,
+    BrowserWindow,
+    craftMethod,
+    GlobalPersisterHandlerServiceToYield,
+    type ExtractDeps,
+    type GetDeps,
+    type GetPublicComponentProperties
+} from '@craft-ng/core';
 
 @Component({
   imports: [RouterModule],
@@ -47,6 +55,11 @@ import { GlobalPersisterHandlerService } from '@craft-ng/core';
         >
         <a routerLink="/craft/full-demo" routerLinkActive="active"
           >Craft Full Demo</a
+        >
+        <a
+          routerLink="/craft/lazy-layout/100/users/42"
+          routerLinkActive="active"
+          >Craft Lazy Layout</a
         >
         <a routerLink="/craft-service/counter" routerLinkActive="active"
           >craftService Counter</a
@@ -237,11 +250,28 @@ import { GlobalPersisterHandlerService } from '@craft-ng/core';
   `,
 })
 export class App {
-  private readonly persisterHandler = inject(GlobalPersisterHandlerService);
-
-  clearCache() {
-    this.persisterHandler.clearAllCache();
-    alert('Cache cleared! The page will reload.');
-    window.location.reload();
-  }
+  clearCache = craftMethod(function* () {
+    const persister = yield* GlobalPersisterHandlerServiceToYield(
+      undefined,
+      ({ clearAllCache }) => ({ clearAllCache }),
+    );
+    persister.clearAllCache();
+    yield* BrowserWindow.alert('Cache cleared! The page will reload.');
+    yield* BrowserLocation.reload();
+  });
 }
+
+export type GenDeps_App = GetDeps<{
+      deps: {
+        RouterModule: RouterModule;
+        Router: Router;
+      };
+      propertiesDeps: {
+        clearCache: ExtractDeps<App["clearCache"]>;
+      };
+      provided: {};
+      publicProperties: GetPublicComponentProperties<App>;
+      missingProvider: {
+        Router: Router;
+      };
+    }>;

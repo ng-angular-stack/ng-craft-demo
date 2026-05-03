@@ -8,8 +8,14 @@ import {
   mutation,
   query,
   queryParam,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
 } from '@craft-ng/core';
-import { StatusComponent } from '../../../ui/status.component';
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
 import { ApiServiceToYield, type User } from './api.service';
 
 const { injectGranularMutation, provideGranularMutation } = craftService(
@@ -206,3 +212,21 @@ export default class GranularMutationCraft {
     this.store.pagination.updatePageSize(value);
   }
 }
+
+export type GenDeps_GranularMutationCraft = GetDeps<{
+  deps: {
+    CommonModule: CommonModule;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+  };
+  propertiesDeps: {
+    store: {
+      GranularMutation: ExtractDeps<
+        typeof injectGranularMutation
+      >['GranularMutation'];
+    };
+  };
+  provided: {
+    GranularMutation: ReturnType<typeof provideGranularMutation>;
+  };
+  publicProperties: GetPublicComponentProperties<GranularMutationCraft>;
+}>;
