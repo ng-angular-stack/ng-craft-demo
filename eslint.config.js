@@ -40,6 +40,8 @@ module.exports = defineConfig([
       'craft-ng/prefer-craft-http-client': 'error',
       'craft-ng/prefer-craft-service': 'error',
       'craft-ng/prefer-browser-boundaries': 'error',
+      'craft-ng/app-start-registry-match': 'error',
+      'craft-ng/brand-angular-deps-match': 'error',
       '@typescript-eslint/no-empty-object-type': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
