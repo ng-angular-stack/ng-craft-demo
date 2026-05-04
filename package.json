@@ -6,7 +6,7 @@
     "start": "concurrently \"ng serve\" \"npm run lint:watch\"",
     "lint": "eslint . --fix",
     "lint:changed": "eslint --fix",
-    "lint:watch": "chokidar \"src/**/*.{ts,html}\" --debounce 800 -c \"eslint --fix {path}\"",
+    "lint:watch": "chokidar \"src/**/*.{ts,html}\" --polling --debounce 800 -c \"eslint --fix {path}\"",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
