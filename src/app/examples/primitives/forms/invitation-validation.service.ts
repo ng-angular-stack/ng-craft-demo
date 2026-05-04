@@ -2,10 +2,10 @@ import { craftService } from '@craft-ng/core';
 
 export type InvitationRole = 'admin' | 'editor' | 'billing';
 
-export type InvitationValidationRequest = {
+export interface InvitationValidationRequest {
   email: string;
   role: InvitationRole;
-};
+}
 
 export type InvitationValidationResult =
   | {
@@ -21,12 +21,12 @@ export type InvitationValidationResult =
       message: string;
     };
 
-export type InvitationValidationService = {
+export interface InvitationValidationService {
   validateInvitation: (
     request: InvitationValidationRequest,
     abortSignal: AbortSignal,
   ) => Promise<InvitationValidationResult>;
-};
+}
 
 export const {
   InvitationValidationServiceToYield,

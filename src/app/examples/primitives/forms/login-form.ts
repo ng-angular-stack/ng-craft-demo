@@ -2,27 +2,27 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { FormField, required } from '@angular/forms/signals';
 import {
-  ValidatedFormValue,
-  cEmail,
-  cMinLength,
-  cRequired,
-  craftException,
-  insertForm,
-  insertFormAttributes,
-  insertFormSubmit,
-  insertNoopTypingAnchor,
-  insertSelectFormTree,
-  mutation,
-  state,
-  type ExtractDeps,
-  type GetDeps,
-  type GetPublicComponentProperties,
+    ValidatedFormValue,
+    cEmail,
+    cMinLength,
+    cRequired,
+    craftException,
+    insertForm,
+    insertFormAttributes,
+    insertFormSubmit,
+    insertNoopTypingAnchor,
+    insertSelectFormTree,
+    mutation,
+    state,
+    type ExtractDeps,
+    type GetDeps,
+    type GetPublicComponentProperties
 } from '@craft-ng/core';
 
-type LoginData = {
+interface LoginData {
   email: string;
   password: string;
-};
+}
 
 @Component({
   selector: 'app-login-form',
@@ -257,14 +257,14 @@ export default class LoginFormComponent {
 }
 
 export type GenDeps_LoginFormComponent = GetDeps<{
-  deps: {
-    CommonModule: CommonModule;
-    FormField: FormField<any>;
-  };
-  propertiesDeps: {
-    loginMutation: ExtractDeps<LoginFormComponent['loginMutation']>;
-    loginForm: ExtractDeps<LoginFormComponent['loginForm']>;
-  };
-  provided: {};
-  publicProperties: GetPublicComponentProperties<LoginFormComponent>;
-}>;
+      deps: {
+        CommonModule: CommonModule;
+        FormField: FormField<unknown>;
+      };
+      propertiesDeps: {
+        loginMutation: ExtractDeps<LoginFormComponent["loginMutation"]>;
+        loginForm: ExtractDeps<LoginFormComponent["loginForm"]>;
+      };
+      provided: {};
+      publicProperties: GetPublicComponentProperties<LoginFormComponent>;
+    }>;

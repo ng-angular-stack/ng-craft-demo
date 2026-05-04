@@ -17,16 +17,16 @@ import {
 } from '@craft-ng/core';
 import { LongPressDirective, type GenDeps_LongPressDirective } from './long-press.directive';
 
-type PixelCellState = {
+interface PixelCellState {
   index: number;
   columnIndex: number;
   color: string;
   paintCount: number;
-};
-type PaintCellEvent = {
+}
+interface PaintCellEvent {
   color: string;
   cellIndex: number;
-};
+}
 
 const GRID_SIZE = 16;
 const EMPTY_COLOR = '#f8fafc';

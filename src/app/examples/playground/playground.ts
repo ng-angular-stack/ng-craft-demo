@@ -11,11 +11,11 @@ import {
 
 // -- Types --
 
-type Todo = {
+interface Todo {
   id: number;
   title: string;
   completed: boolean;
-};
+}
 
 // -- Fake data store --
 

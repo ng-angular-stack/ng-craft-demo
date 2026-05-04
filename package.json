@@ -3,13 +3,15 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "start": "concurrently \"ng serve\" \"npm run lint:watch\"",
+    "lint": "eslint . --fix",
+    "lint:changed": "eslint --fix",
+    "lint:watch": "chokidar \"src/**/*.{ts,html}\" --debounce 800 -c \"eslint --fix {path}\"",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "update": "npm i @craft-ng/core@latest @craft-ng/dev-tools@latest",
-    "update:beta": "npm i @craft-ng/core@beta @craft-ng/dev-tools@beta",
-    "lint": "ng lint"
+    "update:beta": "npm i @craft-ng/core@beta @craft-ng/dev-tools@beta"
   },
   "prettier": {
     "printWidth": 100,

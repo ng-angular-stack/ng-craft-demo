@@ -8,11 +8,11 @@ import {
     type GetPublicComponentProperties
 } from '@craft-ng/core';
 
-type PixelCellState = {
+interface PixelCellState {
   index: number;
   color: string;
   paintCount: number;
-};
+}
 
 const GRID_SIZE = 16;
 const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;

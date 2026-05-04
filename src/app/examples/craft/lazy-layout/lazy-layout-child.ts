@@ -1,9 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { GetDeps, type GetPublicComponentProperties } from '@craft-ng/core';
-import {
-  injectDemoCraftLazyLayoutTeamIdData,
-  injectDemoTeamIdParams,
-} from '../../../app.routes';
+import { injectDemoCraftLazyLayoutTeamIdData, injectDemoTeamIdParams } from '../../../app.routes';
 
 @Component({
   selector: 'app-lazy-layout-child',
@@ -14,8 +11,8 @@ import {
       <span class="badge">Child component</span>
       <h2>Input binding vs inject</h2>
       <p>
-        The same parent route values are shown below, first via component inputs
-        and then via route-scoped inject helpers.
+        The same parent route values are shown below, first via component inputs and then via
+        route-scoped inject helpers.
       </p>
 
       <dl>
@@ -41,12 +38,7 @@ import {
       padding: 1.5rem;
       border-radius: 20px;
       background:
-        linear-gradient(
-          160deg,
-          rgba(14, 116, 144, 0.12),
-          rgba(255, 255, 255, 0.95)
-        ),
-        #ffffff;
+        linear-gradient(160deg, rgba(14, 116, 144, 0.12), rgba(255, 255, 255, 0.95)), #ffffff;
       border: 1px solid rgba(14, 116, 144, 0.16);
       box-shadow: 0 18px 45px rgba(14, 116, 144, 0.12);
     }
@@ -109,8 +101,7 @@ import {
       padding: 0.15rem 0.35rem;
       border-radius: 0.35rem;
       background: rgba(15, 23, 42, 0.06);
-      font-family:
-        'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
       font-size: 0.92em;
     }
   `,
@@ -127,9 +118,7 @@ export type GenDeps_LazyLayoutChildComponent = GetDeps<{
   deps: {};
   propertiesDeps: {
     injectedParentRouteData: {
-      DemoCraftLazyLayoutTeamIdData: ReturnType<
-        typeof injectDemoCraftLazyLayoutTeamIdData
-      >;
+      DemoCraftLazyLayoutTeamIdData: ReturnType<typeof injectDemoCraftLazyLayoutTeamIdData>;
     };
     injectedTeamId: {
       DemoTeamIdParams: ReturnType<typeof injectDemoTeamIdParams>;
@@ -138,9 +127,7 @@ export type GenDeps_LazyLayoutChildComponent = GetDeps<{
   provided: {};
   publicProperties: GetPublicComponentProperties<LazyLayoutChildComponent>;
   missingProvider: {
-    DemoCraftLazyLayoutTeamIdData: ReturnType<
-      typeof injectDemoCraftLazyLayoutTeamIdData
-    >;
+    DemoCraftLazyLayoutTeamIdData: ReturnType<typeof injectDemoCraftLazyLayoutTeamIdData>;
     DemoTeamIdParams: ReturnType<typeof injectDemoTeamIdParams>;
   };
 }>;

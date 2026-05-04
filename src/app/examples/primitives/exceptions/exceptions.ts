@@ -2,11 +2,11 @@ import { CommonModule } from '@angular/common';
 import { Component, signal } from '@angular/core';
 import { craftException, query, type ExtractDeps, type GetDeps, type GetPublicComponentProperties } from '@craft-ng/core';
 
-type User = {
+interface User {
   id: string;
   name: string;
   email: string;
-};
+}
 
 type Scenario = 'success' | 'not-found' | 'consent-missing' | 'forbidden';
 

@@ -1,10 +1,10 @@
 import { signal } from '@angular/core';
 import { craftException, craftService } from '@craft-ng/core';
 
-export type User = {
+export interface User {
   id: string;
   name: string;
-};
+}
 
 function delay<T>(value: T, ms: number): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));

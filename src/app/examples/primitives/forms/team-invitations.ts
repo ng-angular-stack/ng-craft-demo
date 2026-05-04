@@ -31,18 +31,18 @@ import {
     InvitationValidationResult,
 } from './invitation-validation.service';
 
-type WorkspaceInvitation = {
+interface WorkspaceInvitation {
   id: number;
   email: string;
   role: InvitationRole;
-};
+}
 
-type Summary = {
+interface Summary {
   draft: number;
   checking: number;
   blocked: number;
   ready: number;
-};
+}
 
 type InvitationForm = () => {
   errors: () => ValidationError.WithFieldTree[];
@@ -51,7 +51,7 @@ type InvitationForm = () => {
   validatedFormValue: () => WorkspaceInvitation | undefined;
 };
 
-const ROLE_OPTIONS: Array<{ value: InvitationRole; label: string }> = [
+const ROLE_OPTIONS: { value: InvitationRole; label: string }[] = [
   { value: 'admin', label: 'Admin' },
   { value: 'editor', label: 'Editor' },
   { value: 'billing', label: 'Billing' },
@@ -489,7 +489,7 @@ export default class TeamInvitationsComponent {
 export type GenDeps_TeamInvitationsComponent = GetDeps<{
       deps: {
         CommonModule: CommonModule;
-        FormField: FormField<any>;
+        FormField: FormField<unknown>;
       };
       propertiesDeps: {
         nextInvitationId: ExtractDeps<TeamInvitationsComponent["nextInvitationId"]>;

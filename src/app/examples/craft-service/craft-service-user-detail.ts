@@ -12,11 +12,11 @@ import {
 
 // -- Types --
 
-type User = {
+interface User {
   id: string;
   name: string;
   email: string;
-};
+}
 
 // -- Fake API delay --
 
