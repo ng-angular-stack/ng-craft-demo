@@ -1,25 +1,22 @@
-import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import {
   insertLocalStoragePersister,
   insertPaginationPlaceholderData,
-  insertReactOnMutation,
-  mutation,
   query,
-  queryParam,
   type ExtractDeps,
   type GetDeps,
   type GetPublicComponentProperties,
 } from '@craft-ng/core';
+import { injectDemoQueryParamQueryParams } from '../../../app.routes';
 import {
   StatusComponent,
   type GenDeps_StatusComponent,
 } from '../../../ui/status.component';
-import { injectApiService, User } from './api.service';
+import { injectApiService } from './api.service';
 
 @Component({
-  selector: 'app-granular-mutation',
-  imports: [CommonModule, StatusComponent],
+  selector: 'app-list-with-pagination',
+  imports: [StatusComponent],
   template: `
     <div class="container">
       <main class="content">
@@ -36,7 +33,6 @@ import { injectApiService, User } from './api.service';
                   <tr>
                     <th>ID</th>
                     <th>Name</th>
-                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -46,30 +42,6 @@ import { injectApiService, User } from './api.service';
                         <td>{{ user.id }}</td>
 
                         <td>{{ user.name }}</td>
-
-                        <td>
-                          <button
-                            class="action-btn"
-                            (click)="updateUserName.mutate(user)"
-                            [disabled]="
-                              updateUserName.select(user.id)?.isLoading()
-                            "
-                          >
-                            Update Name
-                            @if (
-                              updateUserName.select(user.id)?.status() &&
-                              updateUserName.select(user.id)?.status() !==
-                                'idle'
-                            ) {
-                              <app-status
-                                [status]="
-                                  updateUserName.select(user.id)?.status() ??
-                                  'idle'
-                                "
-                              ></app-status>
-                            }
-                          </button>
-                        </td>
                       </tr>
                     } @empty {
                       @if (usersQuery.currentPageStatus() === 'resolved') {
@@ -121,71 +93,25 @@ import { injectApiService, User } from './api.service';
       </main>
     </div>
   `,
-  styleUrls: ['./granular-mutation.css'],
+  styleUrls: ['./list-with-pagination.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export default class GranularMutation {
-  protected readonly pagination = queryParam(
-    {
-      state: {
-        page: {
-          fallbackValue: 1,
-          parse: (value) => parseInt(value, 10),
-          serialize: (value) => String(value),
-        },
-        pageSize: {
-          fallbackValue: 4,
-          parse: (value) => parseInt(value, 10),
-          serialize: (value) => String(value),
-        },
-      },
-    },
-    ({ patch, state }) => ({
-      nextPage: () => patch({ page: state().page + 1 }),
-      previousPage: () => patch({ page: state().page - 1 }),
-      updatePageSize: (newPageSize: number) =>
-        patch({ pageSize: newPageSize, page: 1 }),
-    }),
-  );
+export default class QpListWithPagination {
+  protected readonly pagination = injectDemoQueryParamQueryParams();
   private readonly apiService = injectApiService();
-
-  protected readonly updateUserName = mutation({
-    method: (payload: User) => ({
-      ...payload,
-      name: payload.name + '-',
-    }),
-    identifier: ({ id }) => id,
-    loader: ({ params: user }) => this.apiService.updateItem(user),
-  });
 
   protected readonly usersQuery = query(
     {
       params: this.pagination,
       identifier: (params) => `${params.page}-${params.pageSize}`,
-      loader: ({ params: pagination }) => {
-        return this.apiService.getDataList(pagination);
-      },
+      loader: ({ params: pagination }) =>
+        this.apiService.getDataList(pagination),
     },
     insertLocalStoragePersister({
       storeName: 'demo-app',
-      key: 'granular',
+      key: 'list-with-pagination',
     }),
     insertPaginationPlaceholderData,
-    insertReactOnMutation(this.updateUserName, {
-      filter: ({ mutationIdentifier, queryResource }) =>
-        queryResource
-          .safeValue()
-          ?.some((item) => item.id === mutationIdentifier) ?? false,
-      optimisticUpdate: ({
-        queryResource,
-        mutationIdentifier,
-        mutationParams,
-      }) => {
-        return queryResource.value()?.map((item) => {
-          return item.id === mutationIdentifier ? mutationParams : item;
-        });
-      },
-    }),
   );
 
   protected updatePageSize(event: Event) {
@@ -194,19 +120,26 @@ export default class GranularMutation {
   }
 }
 
-export type GenDeps_GranularMutation = GetDeps<{
+export type GenDeps_QpListWithPagination = GetDeps<{
   deps: {
-    CommonModule: CommonModule;
     GenDeps_StatusComponent: GenDeps_StatusComponent;
   };
   propertiesDeps: {
-    pagination: ExtractDeps<GranularMutation['pagination']>;
+    pagination: {
+      DemoQueryParamQueryParams: ReturnType<
+        typeof injectDemoQueryParamQueryParams
+      >;
+    };
     apiService: {
       ApiService: ExtractDeps<typeof injectApiService>['ApiService'];
     };
-    updateUserName: ExtractDeps<GranularMutation['updateUserName']>;
-    usersQuery: ExtractDeps<GranularMutation['usersQuery']>;
+    usersQuery: ExtractDeps<QpListWithPagination['usersQuery']>;
   };
   provided: {};
-  publicProperties: GetPublicComponentProperties<GranularMutation>;
+  publicProperties: GetPublicComponentProperties<QpListWithPagination>;
+  missingProvider: {
+    DemoQueryParamQueryParams: ReturnType<
+      typeof injectDemoQueryParamQueryParams
+    >;
+  };
 }>;

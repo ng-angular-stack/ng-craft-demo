@@ -1,15 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import {
+  injectCraftRouter,
   insertLocalStoragePersister,
   query,
-  type DerivedService,
   type ExtractDeps,
   type GetDeps,
   type GetPublicComponentProperties,
-  type GetServiceOutput,
 } from '@craft-ng/core';
-import { injectCraftRouter } from '../../../shared/router.service';
 import {
   StatusComponent,
   type GenDeps_StatusComponent,
@@ -62,11 +60,21 @@ export default class GlobalQuery {
   );
 
   protected nextPage() {
-    this.router.navigate(['query', parseInt(this.userId() ?? '0') + 1]);
+    void this.router.navigate({
+      to: 'query/:userId',
+      params: {
+        userId: String(parseInt(this.userId() ?? '0', 10) + 1),
+      },
+    });
   }
 
   protected previousPage() {
-    this.router.navigate(['query', parseInt(this.userId() ?? '10') - 1]);
+    void this.router.navigate({
+      to: 'query/:userId',
+      params: {
+        userId: String(parseInt(this.userId() ?? '10', 10) - 1),
+      },
+    });
   }
 }
 
@@ -81,20 +89,13 @@ export type GenDeps_GlobalQuery = GetDeps<{
       ApiService: ExtractDeps<typeof injectApiService>['ApiService'];
     };
     router: {
-      CraftRouter: DerivedService<
-        ExtractDeps<typeof injectCraftRouter>['CraftRouter'],
-        {
-          derivedPropertiesUsed: {
-            navigate: GetServiceOutput<typeof injectCraftRouter>['navigate'];
-          };
-          derivedPropertiesExposed: {
-            navigate: GetServiceOutput<typeof injectCraftRouter>['navigate'];
-          };
-        }
-      >;
+      CraftRouter: ReturnType<typeof injectCraftRouter>;
     };
     userQuery: ExtractDeps<GlobalQuery['userQuery']>;
   };
   provided: {};
   publicProperties: GetPublicComponentProperties<GlobalQuery>;
+  missingProvider: {
+    CraftRouter: ReturnType<typeof injectCraftRouter>;
+  };
 }>;

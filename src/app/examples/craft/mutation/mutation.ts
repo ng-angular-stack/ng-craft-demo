@@ -1,6 +1,7 @@
 import { JsonPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import {
+  CraftRouterToYield,
   craftMethod,
   craftService,
   insertLocalStoragePersister,
@@ -13,7 +14,6 @@ import {
   type GetPublicComponentProperties,
   type MaybeSignal,
 } from '@craft-ng/core';
-import { CraftRouterToYield } from '../../../shared/router.service';
 import {
   StatusComponent,
   type GenDeps_StatusComponent,
@@ -23,24 +23,23 @@ import { ApiServiceToYield, type User } from './api.service';
 const { injectUserMutation, provideUserMutation, UserMutationToYield } =
   craftService(
     { name: 'UserMutation', scope: 'toProvide' },
-    function* (inputs: { userId: MaybeSignal<string | undefined> }) {
-      const { getItemById, updateItem } = yield* ApiServiceToYield(
-        {},
-        ({ getItemById, updateItem }) => ({ getItemById, updateItem }),
-      );
-
+    (inputs: { userId: MaybeSignal<string | undefined> }) => {
       const updateUserName = mutation({
         method: (payload: { userName: string; user: User }) => ({
           ...payload.user,
           name: payload.userName,
         }),
-        loader: ({ params: user }) => updateItem(user),
+        loader: function* ({ params: user }) {
+          return yield* ApiServiceToYield.updateItem(user);
+        },
       });
 
       const user = query(
         {
           params: () => toValue(inputs.userId),
-          loader: ({ params: userId }) => getItemById(userId),
+          loader: function* ({ params: userId }) {
+            return yield* ApiServiceToYield.getItemById(userId);
+          },
           preservePreviousValue: () => true,
         },
         insertLocalStoragePersister({
@@ -114,14 +113,24 @@ export default class MutationCraft {
     const router = yield* CraftRouterToYield(undefined, ({ navigate }) => ({
       navigate,
     }));
-    router.navigate(['craft', 'mutation', parseInt(this.userId() ?? '0') + 1]);
+    void router.navigate({
+      to: 'craft/mutation/:userId',
+      params: {
+        userId: String(parseInt(this.userId() ?? '0', 10) + 1),
+      },
+    });
   });
 
   protected previousPage = craftMethod(this, function* () {
     const router = yield* CraftRouterToYield(undefined, ({ navigate }) => ({
       navigate,
     }));
-    router.navigate(['craft', 'mutation', parseInt(this.userId() ?? '10') - 1]);
+    void router.navigate({
+      to: 'craft/mutation/:userId',
+      params: {
+        userId: String(parseInt(this.userId() ?? '10', 10) - 1),
+      },
+    });
   });
 }
 

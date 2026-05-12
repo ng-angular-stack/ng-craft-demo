@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
 import {
   asyncProcess,
+  craftMethod,
   craftService,
   insertLocalStoragePersister,
   insertPaginationPlaceholderData,
@@ -29,22 +30,9 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const { injectFullDemo, provideFullDemo } = craftService(
+const { injectFullDemo, provideFullDemo, FullDemoToYield } = craftService(
   { name: 'FullDemo', scope: 'toProvide' },
-  function* () {
-    const {
-      getDataList,
-      updateItem,
-      bulkDelete: apiBulkDelete,
-    } = yield* ApiServiceToYield(
-      {},
-      ({ getDataList, updateItem, bulkDelete }) => ({
-        getDataList,
-        updateItem,
-        bulkDelete,
-      }),
-    );
-
+  () => {
     const reset$ = source$<void>();
 
     const pagination = queryParam(
@@ -73,9 +61,8 @@ const { injectFullDemo, provideFullDemo } = craftService(
 
     const bulkDelete = mutation({
       method: (ids: string[]) => ids,
-      loader: async ({ params: ids }) => {
-        await apiBulkDelete(ids);
-        return ids;
+      loader: function* ({ params: ids }) {
+        return yield* ApiServiceToYield.bulkDelete(ids);
       },
     });
 
@@ -103,14 +90,18 @@ const { injectFullDemo, provideFullDemo } = craftService(
           : undefined;
       },
       identifier: ({ id }) => id,
-      loader: ({ params: user }) => updateItem(user),
+      loader: function* ({ params: user }) {
+        return yield* ApiServiceToYield.updateItem(user);
+      },
     });
 
     const users = query(
       {
         params: pagination,
         identifier: (params) => `${params.page}-${params.pageSize}`,
-        loader: ({ params: pagination }) => getDataList(pagination),
+        loader: function* ({ params: pagination }) {
+          return yield* ApiServiceToYield.getDataList(pagination);
+        },
       },
       insertLocalStoragePersister({
         storeName: 'demo-app-craft',
@@ -407,10 +398,11 @@ const { injectFullDemo, provideFullDemo } = craftService(
 export default class FullDemoCraft {
   protected readonly store = injectFullDemo();
 
-  protected updatePageSize(event: Event) {
+  protected updatePageSize = craftMethod(function* (event: Event) {
     const value = Number((event.target as HTMLSelectElement).value);
-    this.store.pagination.updatePageSize(value);
-  }
+    const pagination = yield* FullDemoToYield.pagination();
+    pagination.updatePageSize(value);
+  });
 }
 
 export type GenDeps_FullDemoCraft = GetDeps<{
@@ -422,6 +414,7 @@ export type GenDeps_FullDemoCraft = GetDeps<{
     store: {
       FullDemo: ExtractDeps<typeof injectFullDemo>['FullDemo'];
     };
+    updatePageSize: ExtractDeps<FullDemoCraft['updatePageSize']>;
   };
   provided: {
     FullDemo: ReturnType<typeof provideFullDemo>;

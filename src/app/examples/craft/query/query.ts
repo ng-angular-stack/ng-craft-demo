@@ -1,6 +1,8 @@
 import { JsonPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import {
+  Console,
+  CraftRouterToYield,
   craftMethod,
   craftService,
   insertLocalStoragePersister,
@@ -11,7 +13,6 @@ import {
   type GetPublicComponentProperties,
   type MaybeSignal,
 } from '@craft-ng/core';
-import { CraftRouterToYield } from '../../../shared/router.service';
 import {
   StatusComponent,
   type GenDeps_StatusComponent,
@@ -20,15 +21,14 @@ import { ApiServiceToYield } from './api.service';
 
 const { injectUserQuery } = craftService(
   { name: 'UserQuery', scope: 'global' },
-  function* (inputs: { userId: MaybeSignal<string | undefined> }) {
-    const { getItemById } = yield* ApiServiceToYield({}, ({ getItemById }) => ({
-      getItemById,
-    }));
-
+  (inputs: { userId: MaybeSignal<string | undefined> }) => {
     return query(
       {
         params: () => toValue(inputs.userId),
-        loader: ({ params: userId }) => getItemById(userId),
+        loader: function* ({ params: userId }) {
+          yield* Console.log('Loading user with id:', userId);
+          return yield* ApiServiceToYield.getItemById(userId);
+        },
       },
       insertLocalStoragePersister({
         storeName: 'demo-app-craft',
@@ -72,11 +72,17 @@ export default class GlobalQuery {
   });
 
   protected nextPage = craftMethod(this, function* () {
+    yield* Console.log('Navigating to next user');
     const { navigate } = yield* CraftRouterToYield(
       undefined,
       ({ navigate }) => ({ navigate }),
     );
-    navigate(['craft', 'query', parseInt(this.userId() ?? '0') + 1]);
+    void navigate({
+      to: 'craft/query/:userId',
+      params: {
+        userId: String(parseInt(this.userId() ?? '0', 10) + 1),
+      },
+    });
   });
 
   protected previousPage = craftMethod(this, function* () {
@@ -84,7 +90,12 @@ export default class GlobalQuery {
       undefined,
       ({ navigate }) => ({ navigate }),
     );
-    navigate(['craft', 'query', parseInt(this.userId() ?? '10') - 1]);
+    void navigate({
+      to: 'craft/query/:userId',
+      params: {
+        userId: String(parseInt(this.userId() ?? '10', 10) - 1),
+      },
+    });
   });
 }
 

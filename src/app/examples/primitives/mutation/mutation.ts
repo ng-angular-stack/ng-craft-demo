@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import {
+    injectCraftRouter,
     insertLocalStoragePersister,
     insertReactOnMutation,
     mutation,
@@ -10,9 +11,8 @@ import {
     type GetDeps,
     type GetInjectedServiceDependencies,
     type GetPublicComponentProperties,
-    type GetServiceOutput
+    type GetServiceOutput,
 } from '@craft-ng/core';
-import { injectCraftRouter } from '../../../shared/router.service';
 import {
     StatusComponent,
     type GenDeps_StatusComponent,
@@ -93,11 +93,21 @@ export default class MutationDemoComponent {
   }
 
   protected nextPage() {
-    this.router.navigate(['mutation', parseInt(this.userId() ?? '0') + 1]);
+    void this.router.navigate({
+      to: 'mutation/:userId',
+      params: {
+        userId: String(parseInt(this.userId() ?? '0', 10) + 1),
+      },
+    });
   }
 
   protected previousPage() {
-    this.router.navigate(['mutation', parseInt(this.userId() ?? '10') - 1]);
+    void this.router.navigate({
+      to: 'mutation/:userId',
+      params: {
+        userId: String(parseInt(this.userId() ?? '10', 10) - 1),
+      },
+    });
   }
 }
 
@@ -134,16 +144,12 @@ export type GenDeps_MutationDemoComponent = GetDeps<{
         updateUserName: ExtractDeps<MutationDemoComponent["updateUserName"]>;
         userQuery: ExtractDeps<MutationDemoComponent["userQuery"]>;
         router: {
-            CraftRouter: DerivedService<ExtractDeps<typeof injectCraftRouter>["CraftRouter"], {
-              derivedPropertiesUsed: {
-                navigate: GetServiceOutput<typeof injectCraftRouter>["navigate"];
-              };
-              derivedPropertiesExposed: {
-                navigate: GetServiceOutput<typeof injectCraftRouter>["navigate"];
-              };
-            }>;
+            CraftRouter: ReturnType<typeof injectCraftRouter>;
           };
       };
       provided: {};
       publicProperties: GetPublicComponentProperties<MutationDemoComponent>;
+      missingProvider: {
+        CraftRouter: ReturnType<typeof injectCraftRouter>;
+      };
     }>;
