@@ -30,9 +30,9 @@
     "@angular/forms": "^21.2.0",
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
-    "@craft-ng/core": "0.6.0-beta.1",
+    "@craft-ng/core": "0.6.0-beta.2",
     "tslib": "^2.3.0",
-    "@craft-ng/dev-tools": "0.6.0-beta.1"
+    "@craft-ng/dev-tools": "0.6.0-beta.2"
   },
   "devDependencies": {
     "@angular/build": "^21.2.0",
