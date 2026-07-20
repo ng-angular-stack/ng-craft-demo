@@ -1,33 +1,86 @@
-import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
-import { craftService, MaybeSignal, state, toValue } from '@craft-ng/core';
+import { afterEveryRender, Component, computed } from '@angular/core';
+import {
+  craftUse,
+  asyncProcess,
+  BrowserNavigator,
+  componentMonitoring,
+  craftMethod,
+  craftPipe,
+  insertSelect,
+  provideHostName,
+  state,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
+} from '@craft-ng/core';
 
-const { injectCounter } = craftService(
-  { name: 'Counter', scope: 'function' },
-  (inputs: { initialValue: MaybeSignal<number> }) => {
-    return state(toValue(inputs.initialValue), ({ update }) => ({
-      increment: () => update((c) => c + 1),
-    }));
-  },
-);
+function _render() {
+  afterEveryRender(() => console.log('rendered Test'));
+}
 
 @Component({
   selector: 'app-test',
-  standalone: true,
-  imports: [CommonModule],
-  template: `
-    <div>
-      Counter 1: {{ counter1() }}
-      <button (click)="counter1.increment()">Increment Counter 1</button>
-    </div>
-
-    <div>
-      Counter 2: {{ counter2() }}
-      <button (click)="counter2.increment()">Increment Counter 2</button>
-    </div>
-  `,
+  template: `Counter {{ counter().value }} / isOdd:
+    {{ counter.selectValue().isOdd() }}/
+    <button (click)="counter.selectValue().increment()">Increment</button>
+    <button (click)="shouldFailed()">Should fail</button> `,
+  providers: [provideHostName('component:TestComponent')],
 })
 export default class TestComponent {
-  counter1 = injectCounter({ initialValue: 0 });
-  counter2 = injectCounter({ initialValue: 200 });
+  private readonly _monitoring = componentMonitoring();
+
+  _ = _render();
+  counter = craftUse(
+    state(
+      {
+        value: 0,
+        nestedValue: 'hello',
+      },
+      (context) =>
+        craftPipe(
+          context,
+          insertSelect('value', ({ state, update }) => ({
+            increment: () => update((c) => c + 1),
+            isOdd: computed(() => state() % 2 === 1),
+          })),
+          insertSelect('nestedValue', ({ state }) => ({
+            value: computed(() => state()),
+            totalLength: computed(() => state().length),
+          })),
+        ),
+    ),
+  );
+
+  a = craftUse(
+    asyncProcess(
+      {
+        method: (payload: { title: string; url: string }) => payload,
+        loader: function* ({ params }) {
+          return (yield* BrowserNavigator.share(params)) as Promise<undefined>;
+        },
+      },
+      ({ resource }) => ({
+        isMenuOpen: computed(() => resource.status() === 'loading'),
+      }),
+    ),
+  );
+
+  shouldFailed = craftMethod('shouldFailed', this, () => {
+    throw new Error('This method should not be called');
+  });
 }
+
+export type GenDeps_TestComponent = GetDeps<{
+  deps: {};
+  propertiesDeps: {
+    _monitoring: ExtractDeps<TestComponent['_monitoring']>;
+    _: ExtractDeps<TestComponent['_']>;
+    counter: ExtractDeps<TestComponent['counter']>;
+    a: ExtractDeps<TestComponent['a']>;
+    shouldFailed: ExtractDeps<TestComponent['shouldFailed']>;
+  };
+  provided: {
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<TestComponent>;
+}>;

@@ -1,7 +1,21 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { toCraftService, craftException, queryParam } from '@craft-ng/core';
+import {
+  craftUse,
+  componentMonitoring,
+  craftException,
+  provideHostName,
+  queryParam,
+  toCraftService,
+  type DerivedService,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
+  type GetServiceOutput,
+} from '@craft-ng/core';
+
+// todo migrate to CraftRouter once the relative navigation is supported in the router.navigate method of CraftRouter
 
 const { injectActivatedRoute } = toCraftService({
   name: 'ActivatedRoute',
@@ -81,28 +95,32 @@ const { injectRouter } = toCraftService({
       }
     </section>
   `,
+  providers: [provideHostName('component:ExceptionQueryParamComponent')],
 })
 export default class ExceptionQueryParamComponent {
+  private readonly _monitoring = componentMonitoring();
   private readonly router = injectRouter(undefined, ({ navigate }) => ({
     navigate,
   }));
   private readonly activatedRoute = injectActivatedRoute();
 
-  protected readonly modeQueryParam = queryParam({
-    state: {
-      mode: {
-        fallbackValue: 'fallbackValue' as const,
-        parse: (value: string) =>
-          value === 'success'
-            ? ('success' as const)
-            : craftException(
-                { code: 'InvalidModeFromUrl' },
-                { received: value as string },
-              ),
-        serialize: (value: unknown) => String(value),
+  protected readonly modeQueryParam = craftUse(
+    queryParam({
+      state: {
+        mode: {
+          fallbackValue: 'fallbackValue' as const,
+          parse: (value: string) =>
+            value === 'success'
+              ? ('success' as const)
+              : craftException(
+                  { code: 'InvalidModeFromUrl' },
+                  { received: value as string },
+                ),
+          serialize: (value: unknown) => String(value),
+        },
       },
-    },
-  });
+    }),
+  );
 
   protected navigateSuccess(): void {
     void this.router.navigate([], {
@@ -120,3 +138,35 @@ export default class ExceptionQueryParamComponent {
     });
   }
 }
+
+export type GenDeps_ExceptionQueryParamComponent = GetDeps<{
+  deps: {
+    CommonModule: CommonModule;
+  };
+  propertiesDeps: {
+    _monitoring: ExtractDeps<ExceptionQueryParamComponent['_monitoring']>;
+    router: {
+      Router: DerivedService<
+        ExtractDeps<typeof injectRouter>['Router'],
+        {
+          derivedPropertiesUsed: {
+            navigate: GetServiceOutput<typeof injectRouter>['navigate'];
+          };
+          derivedPropertiesExposed: {
+            navigate: GetServiceOutput<typeof injectRouter>['navigate'];
+          };
+        }
+      >;
+    };
+    activatedRoute: {
+      ActivatedRoute: ExtractDeps<
+        typeof injectActivatedRoute
+      >['ActivatedRoute'];
+    };
+    modeQueryParam: ExtractDeps<ExceptionQueryParamComponent['modeQueryParam']>;
+  };
+  provided: {
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<ExceptionQueryParamComponent>;
+}>;

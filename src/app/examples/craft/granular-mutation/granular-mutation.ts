@@ -1,26 +1,35 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import {
+  craftUse,
+  componentMonitoring,
+  craftMethod,
   craftService,
   insertLocalStoragePersister,
   insertPaginationPlaceholderData,
   insertReactOnMutation,
+  craftPipe,
   mutation,
+  provideHostName,
   query,
   queryParam,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
 } from '@craft-ng/core';
-import { StatusComponent } from '../../../ui/status.component';
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
 import { ApiServiceToYield, type User } from './api.service';
 
-const { injectGranularMutation, provideGranularMutation } = craftService(
-  { name: 'GranularMutation', scope: 'toProvide' },
-  function* () {
-    const { getDataList, updateItem } = yield* ApiServiceToYield(
-      {},
-      ({ getDataList, updateItem }) => ({ getDataList, updateItem }),
-    );
-
-    const pagination = queryParam(
+const {
+  injectGranularMutation,
+  provideGranularMutation,
+  GranularMutationToYield,
+} = craftService({ name: 'GranularMutation', scope: 'toProvide' }, () => {
+  const pagination = craftUse(
+    queryParam(
       {
         state: {
           page: {
@@ -41,48 +50,60 @@ const { injectGranularMutation, provideGranularMutation } = craftService(
         updatePageSize: (newPageSize: number) =>
           patch({ pageSize: newPageSize, page: 1 }),
       }),
-    );
+    ),
+  );
 
-    const updateUserName = mutation({
+  const updateUserName = craftUse(
+    mutation({
       method: (payload: User) => ({
         ...payload,
         name: payload.name + '-',
       }),
       identifier: ({ id }) => id,
-      loader: ({ params: user }) => updateItem(user),
-    });
+      loader: function* ({ params: user }) {
+        return yield* ApiServiceToYield.updateItem(user);
+      },
+    }),
+  );
 
-    const users = query(
+  const users = craftUse(
+    query(
       {
         params: pagination,
         identifier: (params) => `${params.page}-${params.pageSize}`,
-        loader: ({ params: pagination }) => getDataList(pagination),
-      },
-      insertLocalStoragePersister({
-        storeName: 'demo-app-craft',
-        key: 'granular',
-      }),
-      insertPaginationPlaceholderData,
-      insertReactOnMutation(updateUserName, {
-        filter: ({ mutationIdentifier, queryResource }) =>
-          queryResource
-            .safeValue()
-            ?.some((item) => item.id === mutationIdentifier) ?? false,
-        optimisticUpdate: ({
-          queryResource,
-          mutationIdentifier,
-          mutationParams,
-        }) => {
-          return queryResource.value()?.map((item) => {
-            return item.id === mutationIdentifier ? mutationParams : item;
-          });
+        loader: function* ({ params: pagination }) {
+          return yield* ApiServiceToYield.getDataList(pagination);
         },
-      }),
-    );
+      },
+      (context) =>
+        craftPipe(
+          context,
+          insertLocalStoragePersister({
+            storeName: 'demo-app-craft',
+            key: 'granular',
+          }),
+          insertPaginationPlaceholderData({ initialValue: [] as User[] }),
+          insertReactOnMutation(updateUserName, {
+            filter: ({ mutationIdentifier, queryResource }) =>
+              queryResource
+                .safeValue()
+                ?.some((item) => item.id === mutationIdentifier) ?? false,
+            optimisticUpdate: ({
+              queryResource,
+              mutationIdentifier,
+              mutationParams,
+            }) => {
+              return queryResource.value()?.map((item) => {
+                return item.id === mutationIdentifier ? mutationParams : item;
+              });
+            },
+          }),
+        ),
+    ),
+  );
 
-    return { pagination, users, updateUserName };
-  },
-);
+  return { pagination, users, updateUserName };
+});
 
 @Component({
   selector: 'app-granular-mutation',
@@ -196,13 +217,43 @@ const { injectGranularMutation, provideGranularMutation } = craftService(
   `,
   styleUrls: ['./granular-mutation.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [provideGranularMutation()],
+  providers: [
+    provideGranularMutation(),
+    provideHostName('component:GranularMutationCraft'),
+  ],
 })
 export default class GranularMutationCraft {
+  private readonly _monitoring = componentMonitoring();
   protected readonly store = injectGranularMutation();
 
-  protected updatePageSize(event: Event) {
-    const value = Number((event.target as HTMLSelectElement).value);
-    this.store.pagination.updatePageSize(value);
-  }
+  protected updatePageSize = craftMethod(
+    'updatePageSize',
+    function* (event: Event) {
+      const value = Number((event.target as HTMLSelectElement).value);
+      const store = yield* GranularMutationToYield();
+      store.pagination.updatePageSize(value);
+      return;
+    },
+  );
 }
+
+export type GenDeps_GranularMutationCraft = GetDeps<{
+  deps: {
+    CommonModule: CommonModule;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+  };
+  propertiesDeps: {
+    _monitoring: ExtractDeps<GranularMutationCraft['_monitoring']>;
+    store: {
+      GranularMutation: ExtractDeps<
+        typeof injectGranularMutation
+      >['GranularMutation'];
+    };
+    updatePageSize: ExtractDeps<GranularMutationCraft['updatePageSize']>;
+  };
+  provided: {
+    GranularMutation: ReturnType<typeof provideGranularMutation>;
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<GranularMutationCraft>;
+}>;

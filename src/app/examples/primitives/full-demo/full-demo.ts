@@ -1,14 +1,15 @@
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
   signal,
 } from '@angular/core';
-import { FormField } from '@angular/forms/signals';
 import {
+  craftUse,
   asyncProcess,
   cMinLength,
+  componentMonitoring,
+  CraftFieldDirective,
   cRequired,
   insertForm,
   insertFormAttributes,
@@ -17,9 +18,11 @@ import {
   insertNoopTypingAnchor,
   insertPaginationPlaceholderData,
   insertReactOnMutation,
+  craftPipe,
   insertSelectFormTree,
   mutation,
   on$,
+  provideHostName,
   query,
   queryParam,
   reactiveWritableSignal,
@@ -29,13 +32,21 @@ import {
   state,
   updateOne,
   ValidatedFormValue,
+  type DerivedService,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
+  type GetServiceOutput,
 } from '@craft-ng/core';
-import { StatusComponent } from '../../../ui/status.component';
-import { injectApiService, User } from './api.service';
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
+import { ApiServiceToYield, injectApiService, User } from './api.service';
 
 @Component({
   selector: 'app-granular-mutation',
-  imports: [CommonModule, StatusComponent, FormField],
+  imports: [StatusComponent, CraftFieldDirective],
   template: `
     <div class="container">
       <main class="content">
@@ -106,29 +117,28 @@ import { injectApiService, User } from './api.service';
                         <td>{{ user.id }}</td>
 
                         <td>
-                          @let nameField = userForm().selectName();
-                          <!-- todo remove editingUserId -->
-                          <!-- todo le form().submit() ne déclenche pas l'appel ? -->
-                          <!-- todo afficher status de chargement du save -->
-                          <!-- todo si form pas save et dif, afficher une état pour signaler que ce n'est pas save -->
-                          @if (userForm().isEditing()) {
+                          @let nameField = userForm?.selectName();
+                          @if (userForm?.isEditing()) {
                             <form
                               (submit)="
-                                $event.preventDefault(); userForm().submit()
+                                $event.preventDefault();
+                                userForm?.submit()
                               "
                               novalidate
                             >
                               <div class="inline-edit">
-                                <input
-                                  type="text"
-                                  class="inline-edit-input"
-                                  [formField]="nameField"
-                                />
+                                @if (nameField; as nf) {
+                                  <input
+                                    type="text"
+                                    class="inline-edit-input"
+                                    [craftField]="nf"
+                                  />
+                                }
                                 <button
                                   class="inline-edit-btn save-btn"
                                   title="Save"
                                   type="submit"
-                                  (click)="userForm().toggleEditing()"
+                                  (click)="userForm?.toggleEditing()"
                                 >
                                   ✓
                                 </button>
@@ -136,20 +146,19 @@ import { injectApiService, User } from './api.service';
                                   class="inline-edit-btn cancel-btn"
                                   type="button"
                                   title="Cancel"
-                                  (click)="
-                                    userForm().toggleEditing()
-                                  "
+                                  (click)="userForm?.toggleEditing()"
                                 >
                                   ✕
                                 </button>
                               </div>
                             </form>
                             @if (
-                              nameField().visibleExceptions().list.length > 0
+                              (nameField?.visibleExceptions()?.list?.length ??
+                                0) > 0
                             ) {
                               <div class="field-errors">
                                 @for (
-                                  error of nameField().exceptions().list;
+                                  error of nameField?.exceptions()?.list ?? [];
                                   track error.code
                                 ) {
                                   @let code = error.code;
@@ -160,8 +169,7 @@ import { injectApiService, User } from './api.service';
                                     @case ('minLength') {
                                       <span>
                                         Name must be at least
-                                        {{ error.payload }} characters
-                                        long.
+                                        {{ error.payload }} characters long.
                                       </span>
                                     }
                                     @default never;
@@ -171,14 +179,19 @@ import { injectApiService, User } from './api.service';
                             }
                           } @else {
                             <div class="inline-display">
-                              <span [class.unsaved]="userForm().dirty() && !userForm().submitting()">{{ user.name }}</span>
-                              @if (userForm().submitting()) {
+                              <span
+                                [class.unsaved]="
+                                  userForm?.dirty() && !userForm?.submitting()
+                                "
+                                >{{ user.name }}</span
+                              >
+                              @if (userForm?.submitting()) {
                                 <span class="spinner"></span>
                               } @else {
                                 <button
                                   class="inline-edit-icon"
                                   title="Edit name"
-                                  (click)="userForm().toggleEditing()"
+                                  (click)="userForm?.toggleEditing()"
                                 >
                                   ✎
                                 </button>
@@ -186,18 +199,20 @@ import { injectApiService, User } from './api.service';
                             </div>
                           }
 
-                          @if(userForm().hasExceptions()) {
-                            @for(exception of  userForm().exceptions().submit; track exception.code) {
+                          @if (userForm?.hasSubmitExceptions()) {
+                            @for (
+                              exception of userForm?.submitExceptions() ?? [];
+                              track exception.code
+                            ) {
                               @let code = exception.code;
                               @switch (code) {
-                                @case('HttpError') {
+                                @case ('HttpError') {
                                   <div class="field-errors">
                                     An error occurred while updating the user.
                                   </div>
                                 }
                                 @default never;
                               }
-
                             }
                           }
                         </td>
@@ -307,17 +322,17 @@ import { injectApiService, User } from './api.service';
                 <option [value]="8">8</option>
                 <option [value]="16">16</option>
               </select>
-              <button [disabled]="usersByPage.disablePaginationWhileEditing()" class="btn" (click)="pagination.previousPage()">
+              <button  class="btn" (click)="pagination.previousPage()">
                 Previous
               </button>
               <span class="current-page">
                 {{ pagination().page }}
               </span>
-              <button [disabled]="usersByPage.disablePaginationWhileEditing()" class="btn" (click)="pagination.nextPage()">Next</button>
+              <button  class="btn" (click)="pagination.nextPage()">Next</button>
             </div>
             @if(usersByPage.disablePaginationWhileEditing()) {
               <div style="margin-top: 16px; color: red;">
-                Pagination is disabled while editing, due to a current limitation/error from the Angular formField directive
+                Pagination is disabled while editing
               </div>
             }
           </div>
@@ -327,146 +342,174 @@ import { injectApiService, User } from './api.service';
   `,
   styleUrls: ['./full-demo.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideHostName('component:FullDemo')],
 })
 export default class FullDemo {
-  protected readonly reset$ = source$<void>();
+  private readonly _monitoring = componentMonitoring();
+  protected readonly reset$ = source$<void>('reset$');
 
-  protected readonly pagination = queryParam(
-    {
-      state: {
-        page: {
-          fallbackValue: 1,
-          parse: (value) => parseInt(value, 10),
-          serialize: (value) => String(value),
-        },
-        pageSize: {
-          fallbackValue: 4,
-          parse: (value) => parseInt(value, 10),
-          serialize: (value) => String(value),
+  protected readonly apiService = injectApiService(
+    undefined,
+    ({ throwError, toggleUpdateError }) => ({ throwError, toggleUpdateError }),
+  );
+
+  protected readonly pagination = craftUse(
+    queryParam(
+      {
+        state: {
+          page: {
+            fallbackValue: 1,
+            parse: (value) => parseInt(value, 10),
+            serialize: (value) => String(value),
+          },
+          pageSize: {
+            fallbackValue: 4,
+            parse: (value) => parseInt(value, 10),
+            serialize: (value) => String(value),
+          },
         },
       },
-    },
-    ({ patch, state, reset }) => ({
-      nextPage: () => patch({ page: state().page + 1 }),
-      previousPage: () => patch({ page: state().page - 1 }),
-      updatePageSize: (newPageSize: number) =>
-        patch({ pageSize: newPageSize, page: 1 }),
-      reset: on$(this.reset$, () => reset()),
+      ({ patch, state, reset }) => ({
+        nextPage: () => patch({ page: state().page + 1 }),
+        previousPage: () => patch({ page: state().page - 1 }),
+        updatePageSize: (newPageSize: number) =>
+          patch({ pageSize: newPageSize, page: 1 }),
+        reset: on$(this.reset$, () => reset()),
+      }),
+    ),
+  );
+
+  protected readonly bulkDelete = craftUse(
+    mutation({
+      method: (ids: string[]) => ids,
+      loader: function* ({ params: ids }) {
+        return yield* ApiServiceToYield.bulkDelete(ids);
+      },
     }),
   );
-  protected readonly apiService = injectApiService();
 
-  protected readonly bulkDelete = mutation({
-    method: (ids: string[]) => ids,
-    loader: async ({ params: ids }) => {
-      await this.apiService.bulkDelete(ids);
-      return ids;
-    },
-  });
-
-  protected readonly delayUserDeletion = asyncProcess({
-    method: (payload: { user: User; action: 'delete' | 'cancel' }) => payload,
-    identifier: ({ user: { id } }) => id,
-    loader: async ({ params: { user, action } }) => {
-      if (action === 'cancel') {
-        return undefined;
-      }
-      await wait(5000);
-      return user;
-    },
-  });
-
-  protected readonly deleteUser = mutation({
-    fromResourceById: this.delayUserDeletion._resourceById,
-    params: (resource) => {
-      const value = resource?.safeValue();
-      return value
-        ? {
-            ...value,
-            name: value?.name + '-',
-          }
-        : undefined;
-    },
-    identifier: ({ id }) => id,
-    loader: ({ params: user }) => this.apiService.updateItem(user),
-  });
-
-  private readonly updateUserName = mutation({
-    method: (payload: NonNullable<ValidatedFormValue<User>>) => payload,
-    identifier: ({ id }) => id,
-    loader: async ({ params: user }) => this.apiService.updateItem(user),
-  });
-
-  private readonly usersQuery = query(
-    {
-      params: this.pagination,
-      identifier: (params) => `${params.page}-${params.pageSize}`,
-      loader: ({ params: pagination }) =>
-        this.apiService.getDataList(pagination),
-    },
-    insertLocalStoragePersister({
-      storeName: 'demo-app-full-demo',
-      key: 'granular',
-    }),
-    insertPaginationPlaceholderData,
-    insertReactOnMutation(this.deleteUser, {
-      filter: ({ mutationIdentifier, queryResource }) =>
-        !!queryResource
-          .safeValue()
-          ?.some((item) => item.id === mutationIdentifier),
-      optimisticUpdate: ({ queryResource, mutationIdentifier }) =>
-        removeOne({
-          entities: queryResource.value(),
-          id: mutationIdentifier,
-        }),
-      reload: {
-        onMutationError: true,
+  protected readonly delayUserDeletion = craftUse(
+    asyncProcess({
+      method: (payload: { user: User; action: 'delete' | 'cancel' }) => payload,
+      identifier: ({ user: { id } }) => id,
+      loader: async ({ params: { user, action } }) => {
+        if (action === 'cancel') {
+          return undefined;
+        }
+        await wait(5000);
+        return user;
       },
     }),
-    insertReactOnMutation(this.deleteUser, {
-      filter: ({ queryResource }) => queryResource.safeValue()?.length === 0,
-      reload: {
-        // reload the current page if there is no more data after mutation
-        onMutationResolved: true,
+  );
+
+  protected readonly deleteUser = craftUse(
+    mutation({
+      fromResourceById: this.delayUserDeletion._resourceById,
+      params: (resource) => {
+        const value = resource?.safeValue();
+        return value
+          ? {
+              ...value,
+              name: value?.name + '-',
+            }
+          : undefined;
+      },
+      identifier: ({ id }) => id,
+      loader: function* ({ params: user }) {
+        return yield* ApiServiceToYield.updateItem(user);
       },
     }),
-    insertReactOnMutation(this.bulkDelete, {
-      filter: ({ queryResource }) =>
-        (queryResource.safeValue()?.length ?? 0) > 0,
-      optimisticUpdate: ({ queryResource, mutationParams }) =>
-        removeMany({
-          entities: queryResource.value(),
-          ids: mutationParams,
-        }),
-      reload: {
-        onMutationError: true,
+  );
+
+  private readonly updateUserName = craftUse(
+    mutation({
+      method: (payload: NonNullable<ValidatedFormValue<User>>) => payload,
+      identifier: ({ id }) => id,
+      loader: function* ({ params: user }) {
+        return yield* ApiServiceToYield.updateItem(user);
       },
     }),
-    insertReactOnMutation(this.bulkDelete, {
-      filter: ({ queryResource }) => queryResource.safeValue()?.length === 0,
-      reload: {
-        // reload the current page if there is no more data after mutation
-        onMutationResolved: ({ queryResource }) =>
-          queryResource.safeValue()?.length === 0,
+  );
+
+  private readonly usersQuery = craftUse(
+    query(
+      {
+        params: this.pagination,
+        identifier: (params) => `${params.page}-${params.pageSize}`,
+        loader: function* ({ params: pagination }) {
+          return yield* ApiServiceToYield.getDataList(pagination);
+        },
       },
-    }),
-    insertReactOnMutation(this.updateUserName, {
-      filter: ({ mutationIdentifier, queryResource }) =>
-        !!queryResource
-          .safeValue()
-          ?.some((item) => item.id === mutationIdentifier),
-      optimisticUpdate: ({ queryResource, mutationParams }) =>
-        updateOne({
-          entities: queryResource.value(),
-          update: {
-            id: mutationParams.id,
-            changes: mutationParams,
-          },
-        }),
-      reload: {
-        onMutationError: true,
-      },
-    }),
+      (context) =>
+        craftPipe(
+          context,
+          insertLocalStoragePersister({
+            storeName: 'demo-app-full-demo',
+            key: 'granular',
+          }),
+          insertPaginationPlaceholderData({ initialValue: [] as User[] }),
+          insertReactOnMutation(this.deleteUser, {
+            filter: ({ mutationIdentifier, queryResource }) =>
+              !!queryResource
+                .safeValue()
+                ?.some((item) => item.id === mutationIdentifier),
+            optimisticUpdate: ({ queryResource, mutationIdentifier }) =>
+              removeOne({
+                entities: queryResource.value(),
+                id: mutationIdentifier,
+              }),
+            reload: {
+              onMutationException: true,
+            },
+          }),
+          insertReactOnMutation(this.deleteUser, {
+            filter: ({ queryResource }) =>
+              queryResource.safeValue()?.length === 0,
+            reload: {
+              // reload the current page if there is no more data after mutation
+              onMutationResolved: true,
+            },
+          }),
+          insertReactOnMutation(this.bulkDelete, {
+            filter: ({ queryResource }) =>
+              (queryResource.safeValue()?.length ?? 0) > 0,
+            optimisticUpdate: ({ queryResource, mutationParams }) =>
+              removeMany({
+                entities: queryResource.value(),
+                ids: mutationParams,
+              }),
+            reload: {
+              onMutationException: true,
+            },
+          }),
+          insertReactOnMutation(this.bulkDelete, {
+            filter: ({ queryResource }) =>
+              queryResource.safeValue()?.length === 0,
+            reload: {
+              // reload the current page if there is no more data after mutation
+              onMutationResolved: ({ queryResource }) =>
+                queryResource.safeValue()?.length === 0,
+            },
+          }),
+          insertReactOnMutation(this.updateUserName, {
+            filter: ({ mutationIdentifier, queryResource }) =>
+              !!queryResource
+                .safeValue()
+                ?.some((item) => item.id === mutationIdentifier),
+            optimisticUpdate: ({ queryResource, mutationParams }) =>
+              updateOne({
+                entities: queryResource.value(),
+                update: {
+                  id: mutationParams.id,
+                  changes: mutationParams,
+                },
+              }),
+            reload: {
+              onMutationException: true,
+            },
+          }),
+        ),
+    ),
   );
 
   private readonly currentUsersPageResource = computed(() => {
@@ -478,104 +521,127 @@ export default class FullDemo {
     return this.usersQuery.select(currentIdentifier);
   });
 
-  protected readonly usersByPage = state(
-    computed(() => this.usersQuery.currentPageData() ?? []),
-    () => ({
-      status: computed(() =>
-        this.currentUsersPageResource()?.hasException()
-          ? 'exception'
-          : (this.currentUsersPageResource()?.status() ?? 'idle'),
-      ),
-      isLoading: computed(
-        () => this.currentUsersPageResource()?.isLoading() ?? false,
-      ),
-      exceptions: computed(() => this.currentUsersPageResource()?.exceptions()),
-      displayUsers: computed(() => !!this.usersQuery.currentPageData()?.length),
-    }),
-    insertForm(
-      { identifier: ({ item: { id } }) => id },
-      insertFormSubmit(this.updateUserName),
-      insertSelectFormTree(
-        'name',
-        insertNoopTypingAnchor,
-        insertFormAttributes(() => ({
-          validators: [cRequired(), cMinLength({ minLength: 3 })],
-        })),
-      ),
-      () => {
-        const isEditing = signal<boolean>(false);
+  protected readonly usersByPage = craftUse(
+    state(
+      computed(() => this.usersQuery.currentPageData() ?? []),
+      (context) =>
+        craftPipe(
+          context,
+          () => ({
+            status: computed(() =>
+              this.currentUsersPageResource()?.hasException()
+                ? 'exception'
+                : (this.currentUsersPageResource()?.status() ?? 'idle'),
+            ),
+            isLoading: computed(
+              () => this.currentUsersPageResource()?.isLoading() ?? false,
+            ),
+            exceptions: computed(() =>
+              this.currentUsersPageResource()?.exceptions(),
+            ),
+            displayUsers: computed(
+              () => !!this.usersQuery.currentPageData()?.length,
+            ),
+          }),
+          insertForm(
+            { identifier: ({ item: { id } }) => id },
+            insertFormSubmit(this.updateUserName),
+            insertSelectFormTree('name', (context) =>
+              craftPipe(
+                context,
+                insertNoopTypingAnchor,
+                insertFormAttributes(() => ({
+                  validators: [cRequired(), cMinLength({ minLength: 3 })],
+                })),
+              ),
+            ),
+            () => {
+              const isEditing = signal<boolean>(false);
 
-        return {
-          isEditing: isEditing.asReadonly(),
-          toggleEditing: () => isEditing.update((v) => !v),
-        };
-      },
+              return {
+                isEditing: isEditing.asReadonly(),
+                toggleEditing: () => isEditing.update((v) => !v),
+              };
+            },
+          ),
+          ({ state, insertions: { select } }) => ({
+            disablePaginationWhileEditing: computed(() =>
+              state().some(({ id }) => !!select(id)?.isEditing?.()),
+            ),
+          }),
+        ),
     ),
-    ({ state, insertions: { select } }) => ({
-      // due to a formField directive error, we need to disable pagination while editing
-      disablePaginationWhileEditing: computed(() =>
-        state().some(({ id }) => select(id)()?.isEditing()),
-      ),
-    }),
   );
 
-  protected readonly selectedRows = state(
-    reactiveWritableSignal([] as string[], (sync) => ({
-      resetWhenCurrentPageIsResolved: sync(
-        this.usersQuery.currentPageStatus,
-        ({ params, current }) => (params === 'resolved' ? [] : current),
-      ),
-      resetWhenBulkDeleteIsResolved: sync(
-        this.bulkDelete.status,
-        ({ params, current }) => (params === 'resolved' ? [] : current),
-      ),
-      removeDeletedItemsWhenDeleteUserIsResolved: sync(
-        this.delayUserDeletion.changes.resolved,
-        ({ params: resolvedIds, current }) =>
-          resolvedIds.length > 0
-            ? removeMany({
-                entities: current,
-                ids: resolvedIds,
-              })
-            : current,
-      ),
-    })),
-    ({ state: selectedRows }) => ({
-      isAllSelected: computed(
-        () =>
-          this.usersQuery.currentPageData()?.length &&
-          this.usersQuery
-            .currentPageData()
-            ?.every((user) => selectedRows().includes(user.id)),
-      ),
-    }),
-    ({ update, set, state: selectedRows, insertions: { isAllSelected } }) => ({
-      toggleSelection: (id: string) =>
-        update((current) =>
-          current.includes(id)
-            ? current.filter((item) => item !== id)
-            : [...current, id],
+  protected readonly selectedRows = craftUse(
+    state(
+      reactiveWritableSignal([] as string[], (sync) => ({
+        resetWhenCurrentPageIsResolved: sync(
+          this.usersQuery.currentPageStatus,
+          ({ params, current }) => (params === 'resolved' ? [] : current),
         ),
-      isSelected: (id: string) => selectedRows().includes(id),
-      isAllSelected,
-      isSomeSelected: computed(
-        () =>
-          this.usersQuery
-            .currentPageData()
-            ?.some((user) => selectedRows().includes(user.id)) &&
-          !isAllSelected(),
-      ),
-      toggleAllSelection: () => {
-        if (isAllSelected()) {
-          set([]);
-        } else {
-          const allIds =
-            this.usersQuery.currentPageData()?.map((user) => user.id) || [];
-          set(allIds);
-        }
-      },
-      reset: on$(this.reset$, () => set([])),
-    }),
+        resetWhenBulkDeleteIsResolved: sync(
+          this.bulkDelete.status,
+          ({ params, current }) => (params === 'resolved' ? [] : current),
+        ),
+        removeDeletedItemsWhenDeleteUserIsResolved: sync(
+          this.delayUserDeletion.changes.resolved,
+          ({ params: resolvedIds, current }) =>
+            resolvedIds.length > 0
+              ? removeMany({
+                  entities: current,
+                  ids: resolvedIds,
+                })
+              : current,
+        ),
+      })),
+      (context) =>
+        craftPipe(
+          context,
+          ({ state: selectedRows }) => ({
+            isAllSelected: computed(
+              () =>
+                this.usersQuery.currentPageData()?.length &&
+                this.usersQuery
+                  .currentPageData()
+                  ?.every((user) => selectedRows().includes(user.id)),
+            ),
+          }),
+          ({
+            update,
+            set,
+            state: selectedRows,
+            insertions: { isAllSelected },
+          }) => ({
+            toggleSelection: (id: string) =>
+              update((current) =>
+                current.includes(id)
+                  ? current.filter((item) => item !== id)
+                  : [...current, id],
+              ),
+            isSelected: (id: string) => selectedRows().includes(id),
+            isAllSelected,
+            isSomeSelected: computed(
+              () =>
+                this.usersQuery
+                  .currentPageData()
+                  ?.some((user) => selectedRows().includes(user.id)) &&
+                !isAllSelected(),
+            ),
+            toggleAllSelection: () => {
+              if (isAllSelected()) {
+                set([]);
+              } else {
+                const allIds =
+                  this.usersQuery.currentPageData()?.map((user) => user.id) ||
+                  [];
+                set(allIds);
+              }
+            },
+            reset: on$(this.reset$, () => set([])),
+          }),
+        ),
+    ),
   );
 
   protected updatePageSize(event: Event) {
@@ -587,3 +653,46 @@ export default class FullDemo {
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+export type GenDeps_FullDemo = GetDeps<{
+  deps: {
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+    CraftFieldDirective: CraftFieldDirective<unknown>;
+  };
+  propertiesDeps: {
+    _monitoring: ExtractDeps<FullDemo['_monitoring']>;
+    reset$: ExtractDeps<FullDemo['reset$']>;
+    apiService: {
+      ApiService: DerivedService<
+        ExtractDeps<typeof injectApiService>['ApiService'],
+        {
+          derivedPropertiesUsed: {
+            throwError: GetServiceOutput<typeof injectApiService>['throwError'];
+            toggleUpdateError: GetServiceOutput<
+              typeof injectApiService
+            >['toggleUpdateError'];
+          };
+          derivedPropertiesExposed: {
+            throwError: GetServiceOutput<typeof injectApiService>['throwError'];
+            toggleUpdateError: GetServiceOutput<
+              typeof injectApiService
+            >['toggleUpdateError'];
+          };
+        }
+      >;
+    };
+    pagination: ExtractDeps<FullDemo['pagination']>;
+    bulkDelete: ExtractDeps<FullDemo['bulkDelete']>;
+    delayUserDeletion: ExtractDeps<FullDemo['delayUserDeletion']>;
+    deleteUser: ExtractDeps<FullDemo['deleteUser']>;
+    updateUserName: ExtractDeps<FullDemo['updateUserName']>;
+    usersQuery: ExtractDeps<FullDemo['usersQuery']>;
+    currentUsersPageResource: ExtractDeps<FullDemo['currentUsersPageResource']>;
+    usersByPage: ExtractDeps<FullDemo['usersByPage']>;
+    selectedRows: ExtractDeps<FullDemo['selectedRows']>;
+  };
+  provided: {
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<FullDemo>;
+}>;

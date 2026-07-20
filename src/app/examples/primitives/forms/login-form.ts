@@ -1,19 +1,26 @@
-import { CommonModule } from '@angular/common';
+import { JsonPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { FormField, required } from '@angular/forms/signals';
 import {
+  craftUse,
+  CraftFieldDirective,
+  ValidatedFormValue,
   cEmail,
+  cMinLength,
   cRequired,
+  componentMonitoring,
   craftException,
+  craftPipe,
   insertForm,
   insertFormAttributes,
   insertFormSubmit,
+  insertNoopTypingAnchor,
   insertSelectFormTree,
   mutation,
+  provideHostName,
   state,
-  ValidatedFormValue,
-  insertNoopTypingAnchor,
-  cMinLength,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
 } from '@craft-ng/core';
 
 type LoginData = {
@@ -23,16 +30,16 @@ type LoginData = {
 
 @Component({
   selector: 'app-login-form',
-  imports: [CommonModule, FormField],
+  imports: [CraftFieldDirective, JsonPipe],
   template: `
     <div class="login-container">
       <div class="login-card">
         <h2>Login</h2>
 
-        @if (loginForm.form().hasSubmitExceptions()) {
+        @if (loginForm.form.hasSubmitExceptions()) {
           <div class="submit-errors">
             @for (
-              exception of loginForm.form().submitExceptions();
+              exception of loginForm.form.submitExceptions();
               track exception.code
             ) {
               @switch (exception.code) {
@@ -47,19 +54,19 @@ type LoginData = {
           </div>
         }
 
-        <form (submit)="$event.preventDefault(); loginForm.form().submit()">
+        <form (submit)="$event.preventDefault(); loginForm.form.submit()">
           <div class="form-group">
             <label for="email">Email</label>
-            @let emailField = loginForm.form().selectEmail();
+            @let emailField = loginForm.form.selectEmail();
             <input
               id="email"
               type="email"
               placeholder="Enter your email"
-              [formField]="loginForm.form.email"
+              [craftField]="loginForm.form.email"
             />
             <div class="field-errors">
               @for (
-                error of emailField().visibleExceptions().list;
+                error of emailField?.visibleExceptions()?.list ?? [];
                 track error.code
               ) {
                 @switch (error.code) {
@@ -76,16 +83,16 @@ type LoginData = {
 
           <div class="form-group">
             <label for="password">Password</label>
-            @let passwordField = loginForm.form().selectPassword();
+            @let passwordField = loginForm.form.selectPassword();
             <input
               id="password"
               type="password"
               placeholder="Enter your password"
-              [formField]="loginForm.form.password"
+              [craftField]="loginForm.form.password"
             />
             <div class="field-errors">
               @for (
-                error of passwordField().visibleExceptions().list;
+                error of passwordField?.visibleExceptions()?.list ?? [];
                 track error.code
               ) {
                 @switch (error.code) {
@@ -98,15 +105,15 @@ type LoginData = {
           </div>
 
           <button type="submit" class="submit-btn">
-            {{ loginForm.form().submitting() ? 'Logging in...' : 'Log in' }}
+            {{ loginForm.form.submitting() ? 'Logging in...' : 'Log in' }}
           </button>
         </form>
       </div>
     </div>
     errors:
-    {{ loginForm.form().selectEmail()().errors() | json }} hasAttemptedSubmit:{{
-      loginForm.form().hasAttemptedSubmit()
-    }}/exceptions {{ loginForm.form().selectEmail()().exceptions() | json }}
+    {{ loginForm.form.email.errors() | json }} hasAttemptedSubmit:{{
+      loginForm.form.hasAttemptedSubmit()
+    }}
   `,
   styles: [
     `
@@ -209,46 +216,68 @@ type LoginData = {
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideHostName('component:LoginFormComponent')],
 })
 export default class LoginFormComponent {
-  private readonly loginMutation = mutation({
-    method: (payload: NonNullable<ValidatedFormValue<LoginData>>) => payload,
-    loader: async ({ params: credentials }) => {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+  private readonly _monitoring = componentMonitoring();
+  private readonly loginMutation = craftUse(
+    mutation({
+      method: (payload: NonNullable<ValidatedFormValue<LoginData>>) => payload,
+      loader: async ({ params: credentials }) => {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      if (credentials.email === 'invalid@gmail.com') {
-        return craftException(
-          { code: 'UserBannedException' },
-          { message: 'This user has been banned.' as const },
-        );
-      }
+        if (credentials.email === 'invalid@gmail.com') {
+          return craftException(
+            { code: 'UserBannedException' },
+            { message: 'This user has been banned.' as const },
+          );
+        }
 
-      return credentials;
-    },
-  });
-
-  protected readonly loginForm = state(
-    { email: '', password: '' } satisfies LoginData,
-    insertForm(
-      insertFormSubmit(this.loginMutation),
-      ({ schemaPath }) => {
-        required(schemaPath.email);
-        return {};
+        return credentials;
       },
-      insertSelectFormTree(
-        'email',
-        insertNoopTypingAnchor,
-        insertFormAttributes(() => ({
-          validators: [cRequired(), cEmail(), cMinLength({ minLength: 5 })],
-        })),
-      ),
-      insertSelectFormTree(
-        'password',
-        insertNoopTypingAnchor,
-        insertFormAttributes(() => ({
-          validators: [cRequired()],
-        })),
+    }),
+  );
+
+  protected readonly loginForm = craftUse(
+    state(
+      { email: '', password: '' } satisfies LoginData,
+      insertForm(
+        insertFormSubmit(this.loginMutation),
+        insertSelectFormTree('email', (context) =>
+          craftPipe(
+            context,
+            insertNoopTypingAnchor,
+            insertFormAttributes(() => ({
+              validators: [cRequired(), cEmail(), cMinLength({ minLength: 5 })],
+            })),
+          ),
+        ),
+        insertSelectFormTree('password', (context) =>
+          craftPipe(
+            context,
+            insertNoopTypingAnchor,
+            insertFormAttributes(() => ({
+              validators: [cRequired()],
+            })),
+          ),
+        ),
       ),
     ),
   );
 }
+
+export type GenDeps_LoginFormComponent = GetDeps<{
+  deps: {
+    JsonPipe: JsonPipe;
+    CraftFieldDirective: CraftFieldDirective<unknown>;
+  };
+  propertiesDeps: {
+    _monitoring: ExtractDeps<LoginFormComponent['_monitoring']>;
+    loginMutation: ExtractDeps<LoginFormComponent['loginMutation']>;
+    loginForm: ExtractDeps<LoginFormComponent['loginForm']>;
+  };
+  provided: {
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<LoginFormComponent>;
+}>;

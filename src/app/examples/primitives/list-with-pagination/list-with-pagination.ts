@@ -1,13 +1,23 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { injectApiService } from './api.service';
-import { StatusComponent } from '../../../ui/status.component';
 import {
+  craftUse,
+  componentMonitoring,
   insertLocalStoragePersister,
   insertPaginationPlaceholderData,
+  provideHostName,
+  craftPipe,
   query,
   queryParam,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
 } from '@craft-ng/core';
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
+import { injectApiService, type User } from './api.service';
 
 @Component({
   selector: 'app-list-with-pagination',
@@ -90,44 +100,54 @@ import {
   `,
   styleUrls: ['./list-with-pagination.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideHostName('component:ListWithPagination')],
 })
 export default class ListWithPagination {
-  protected readonly pagination = queryParam(
-    {
-      state: {
-        page: {
-          fallbackValue: 1,
-          parse: (value) => parseInt(value, 10),
-          serialize: (value) => String(value),
-        },
-        pageSize: {
-          fallbackValue: 4,
-          parse: (value) => parseInt(value, 10),
-          serialize: (value) => String(value),
+  private readonly _monitoring = componentMonitoring();
+  protected readonly pagination = craftUse(
+    queryParam(
+      {
+        state: {
+          page: {
+            fallbackValue: 1,
+            parse: (value) => parseInt(value, 10),
+            serialize: (value) => String(value),
+          },
+          pageSize: {
+            fallbackValue: 4,
+            parse: (value) => parseInt(value, 10),
+            serialize: (value) => String(value),
+          },
         },
       },
-    },
-    ({ patch, state }) => ({
-      nextPage: () => patch({ page: state().page + 1 }),
-      previousPage: () => patch({ page: state().page - 1 }),
-      updatePageSize: (newPageSize: number) =>
-        patch({ pageSize: newPageSize, page: 1 }),
-    }),
+      ({ patch, state }) => ({
+        nextPage: () => patch({ page: state().page + 1 }),
+        previousPage: () => patch({ page: state().page - 1 }),
+        updatePageSize: (newPageSize: number) =>
+          patch({ pageSize: newPageSize, page: 1 }),
+      }),
+    ),
   );
   private readonly apiService = injectApiService();
 
-  protected readonly usersQuery = query(
-    {
-      params: this.pagination,
-      identifier: (params) => `${params.page}-${params.pageSize}`,
-      loader: ({ params: pagination }) =>
-        this.apiService.getDataList(pagination),
-    },
-    insertLocalStoragePersister({
-      storeName: 'demo-app',
-      key: 'list-with-pagination',
-    }),
-    insertPaginationPlaceholderData,
+  protected readonly usersQuery = craftUse(
+    query(
+      {
+        params: this.pagination,
+        identifier: (params) => `${params.page}-${params.pageSize}`,
+        loader: ({ params: pagination }) =>
+          this.apiService.getDataList(pagination),
+      },
+      (context) =>
+        craftPipe(
+          context,
+          insertLocalStoragePersister({
+            storeName: 'demo-app',
+            key: 'list-with-pagination',
+          }),
+          insertPaginationPlaceholderData({ initialValue: [] as User[] }),
+        ),
+    ),
   );
 
   protected updatePageSize(event: Event) {
@@ -135,3 +155,22 @@ export default class ListWithPagination {
     this.pagination.updatePageSize(value);
   }
 }
+
+export type GenDeps_ListWithPagination = GetDeps<{
+  deps: {
+    CommonModule: CommonModule;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+  };
+  propertiesDeps: {
+    _monitoring: ExtractDeps<ListWithPagination['_monitoring']>;
+    pagination: ExtractDeps<ListWithPagination['pagination']>;
+    apiService: {
+      ApiService: ExtractDeps<typeof injectApiService>['ApiService'];
+    };
+    usersQuery: ExtractDeps<ListWithPagination['usersQuery']>;
+  };
+  provided: {
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<ListWithPagination>;
+}>;

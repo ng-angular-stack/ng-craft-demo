@@ -1,10 +1,16 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import {
+  craftUse,
+  componentMonitoring,
   craftService,
+  provideHostName,
   query,
-  toValue,
-  type MaybeSignal,
   state,
+  toValue,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
+  type MaybeSignal,
 } from '@craft-ng/core';
 
 // -- Types --
@@ -60,10 +66,10 @@ const { injectUser, provideUser } = craftService(
     const usersApi = yield* UsersApiToYield();
 
     return {
-      ...query({
+      ...(yield* query({
         params: () => toValue(inputs.userId),
         loader: ({ params: userId }) => usersApi.getUser(userId),
-      }),
+      })),
       userIds: usersApi.availableUserIds,
     };
   },
@@ -74,7 +80,10 @@ const { injectUser, provideUser } = craftService(
 @Component({
   selector: 'app-craft-service-user-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [provideUser()],
+  providers: [
+    provideUser(),
+    provideHostName('component:CraftServiceUserDetailComponent'),
+  ],
   template: `
     <div class="user-detail">
       <h2>craftService User Detail (query)</h2>
@@ -95,7 +104,7 @@ const { injectUser, provideUser } = craftService(
           @case ('loading') {
             <p class="loading">Loading user...</p>
           }
-          @case ('error') {
+          @case ('exception') {
             <p class="error">Failed to load user.</p>
           }
           @case ('resolved') {
@@ -165,12 +174,31 @@ const { injectUser, provideUser } = craftService(
   `,
 })
 export default class CraftServiceUserDetailComponent {
-  protected readonly userId = state(signal('1'), ({ set }) => ({
-    setUserId: (event: Event | null) => {
-      if (event) {
-        set((event.target as HTMLSelectElement).value);
-      }
-    },
-  }));
+  private readonly _monitoring = componentMonitoring();
+  protected readonly userId = craftUse(
+    state(signal('1'), ({ set }) => ({
+      setUserId: (event: Event | null) => {
+        if (event) {
+          set((event.target as HTMLSelectElement).value);
+        }
+      },
+    })),
+  );
   protected readonly user = injectUser({ userId: this.userId });
 }
+
+export type GenDeps_CraftServiceUserDetailComponent = GetDeps<{
+  deps: {};
+  propertiesDeps: {
+    _monitoring: ExtractDeps<CraftServiceUserDetailComponent['_monitoring']>;
+    userId: ExtractDeps<CraftServiceUserDetailComponent['userId']>;
+    user: {
+      User: ExtractDeps<typeof injectUser>['User'];
+    };
+  };
+  provided: {
+    User: ReturnType<typeof provideUser>;
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<CraftServiceUserDetailComponent>;
+}>;

@@ -1,10 +1,15 @@
-import { CommonModule } from '@angular/common';
 import { Component, input, ResourceStatus } from '@angular/core';
+import {
+    componentMonitoring,
+    provideHostName,
+    type ExtractDeps,
+    type GetDeps,
+    type GetPublicComponentProperties
+} from '@craft-ng/core';
 
 @Component({
   selector: 'app-status',
   standalone: true,
-  imports: [CommonModule],
   styles: [
     `
       .badge-container {
@@ -132,7 +137,21 @@ import { Component, input, ResourceStatus } from '@angular/core';
       @default never;
     }
   `,
+  providers: [provideHostName('component:StatusComponent')],
 })
 export class StatusComponent {
+  private readonly _monitoring = componentMonitoring();
   readonly status = input.required<ResourceStatus | 'exception'>();
 }
+
+export type GenDeps_StatusComponent = GetDeps<{
+      deps: {};
+      propertiesDeps: {
+        _monitoring: ExtractDeps<StatusComponent["_monitoring"]>;
+        status: ExtractDeps<StatusComponent["status"]>;
+      };
+      provided: {
+        HostName: ReturnType<typeof provideHostName>;
+      };
+      publicProperties: GetPublicComponentProperties<StatusComponent>;
+    }>;

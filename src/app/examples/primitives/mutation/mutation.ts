@@ -1,21 +1,27 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { injectApiService, User } from './api.service';
-import { Router } from '@angular/router';
-import { StatusComponent } from '../../../ui/status.component';
 import {
-  toCraftService,
-  query,
-  mutation,
+  craftUse,
+  componentMonitoring,
+  injectCraftRouter,
   insertLocalStoragePersister,
+  craftPipe,
   insertReactOnMutation,
+  mutation,
+  provideHostName,
+  query,
+  type DerivedService,
+  type ExtractDeps,
+  type GetDeps,
+  type GetInjectedServiceDependencies,
+  type GetPublicComponentProperties,
+  type GetServiceOutput,
 } from '@craft-ng/core';
-
-const { injectRouter } = toCraftService({
-  name: 'Router',
-  scope: 'global',
-  token: Router,
-});
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
+import { injectApiService, User } from './api.service';
 
 @Component({
   selector: 'app-mutation',
@@ -48,37 +54,47 @@ const { injectRouter } = toCraftService({
       Update name (<app-status [status]="updateUserName.status()" />)
     </button>
   `,
+  providers: [provideHostName('component:MutationDemoComponent')],
 })
-export default class GlobalQuery {
+export default class MutationDemoComponent {
+  private readonly _monitoring = componentMonitoring();
   public readonly userId = input<string>();
   private readonly apiService = injectApiService();
 
-  protected readonly updateUserName = mutation({
-    method: (payload: { userName: string; user: User }) => ({
-      ...payload.user,
-      name: payload.userName,
-    }),
-    loader: ({ params: user }) => this.apiService.updateItem(user),
-  });
-
-  protected readonly userQuery = query(
-    {
-      params: this.userId,
-      loader: ({ params: userId }) => this.apiService.getItemById(userId),
-      preservePreviousValue: () => true, // keep the previous user display while the new one fetching
-    },
-    insertLocalStoragePersister({
-      storeName: 'demo-app',
-      key: 'mutation',
-    }),
-    insertReactOnMutation(this.updateUserName, {
-      optimisticPatch: {
-        name: ({ mutationParams: { name } }) => name,
-      },
+  protected readonly updateUserName = craftUse(
+    mutation({
+      method: (payload: { userName: string; user: User }) => ({
+        ...payload.user,
+        name: payload.userName,
+      }),
+      loader: ({ params: user }) => this.apiService.updateItem(user),
     }),
   );
 
-  private readonly router = injectRouter(undefined, ({ navigate }) => ({
+  protected readonly userQuery = craftUse(
+    query(
+      {
+        params: this.userId,
+        loader: ({ params: userId }) => this.apiService.getItemById(userId),
+        preservePreviousValue: () => true, // keep the previous user display while the new one fetching
+      },
+      (context) =>
+        craftPipe(
+          context,
+          insertLocalStoragePersister({
+            storeName: 'demo-app',
+            key: 'mutation',
+          }),
+          insertReactOnMutation(this.updateUserName, {
+            optimisticPatch: {
+              name: ({ mutationParams: { name } }) => name,
+            },
+          }),
+        ),
+    ),
+  );
+
+  private readonly router = injectCraftRouter(undefined, ({ navigate }) => ({
     navigate,
   }));
 
@@ -91,10 +107,66 @@ export default class GlobalQuery {
   }
 
   protected nextPage() {
-    this.router.navigate(['mutation', parseInt(this.userId() ?? '0') + 1]);
+    void this.router.navigate({
+      to: 'mutation/:userId',
+      params: {
+        userId: String(parseInt(this.userId() ?? '0', 10) + 1),
+      },
+    });
   }
 
   protected previousPage() {
-    this.router.navigate(['mutation', parseInt(this.userId() ?? '10') - 1]);
+    void this.router.navigate({
+      to: 'mutation/:userId',
+      params: {
+        userId: String(parseInt(this.userId() ?? '10', 10) - 1),
+      },
+    });
   }
 }
+
+export type GenDeps_GlobalQuery = GetDeps<{
+  deps: {
+    CommonModule: CommonModule;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+    ApiService: GetInjectedServiceDependencies<typeof injectApiService>;
+    CraftRouter: DerivedService<
+      GetInjectedServiceDependencies<typeof injectCraftRouter>,
+      {
+        derivedPropertiesUsed: {
+          navigate: GetServiceOutput<typeof injectCraftRouter>['navigate'];
+        };
+        derivedPropertiesExposed: {
+          navigate: GetServiceOutput<typeof injectCraftRouter>['navigate'];
+        };
+      }
+    >;
+  };
+  provided: {};
+  publicProperties: GetPublicComponentProperties<MutationDemoComponent>;
+}>;
+export type GenDeps_MutationDemoComponent = GetDeps<{
+  deps: {
+    CommonModule: CommonModule;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+  };
+  propertiesDeps: {
+    _monitoring: ExtractDeps<MutationDemoComponent['_monitoring']>;
+    userId: ExtractDeps<MutationDemoComponent['userId']>;
+    apiService: {
+      ApiService: ExtractDeps<typeof injectApiService>['ApiService'];
+    };
+    updateUserName: ExtractDeps<MutationDemoComponent['updateUserName']>;
+    userQuery: ExtractDeps<MutationDemoComponent['userQuery']>;
+    router: {
+      CraftRouter: ReturnType<typeof injectCraftRouter>;
+    };
+  };
+  provided: {
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<MutationDemoComponent>;
+  missingProvider: {
+    CraftRouter: ReturnType<typeof injectCraftRouter>;
+  };
+}>;

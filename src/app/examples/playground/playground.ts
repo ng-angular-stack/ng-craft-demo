@@ -1,9 +1,17 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import {
+  craftUse,
+  componentMonitoring,
+  craftMethod,
   craftService,
-  query,
-  mutation,
   insertReactOnMutation,
+  craftPipe,
+  mutation,
+  provideHostName,
+  query,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
 } from '@craft-ng/core';
 
 // -- Types --
@@ -60,40 +68,59 @@ const { ApiServiceToYield } = craftService(
 
 // -- Playground service: composes query + mutation --
 
-const { injectPlayground } = craftService(
+const { injectPlayground, PlaygroundToYield } = craftService(
   { name: 'Playground', scope: 'function' },
-  function* () {
-    const api = yield* ApiServiceToYield();
-
-    const addTodo = mutation({
-      method: (title: string) => title,
-      loader: ({ params: title }) => api.addTodo(title),
-    });
-
-    const toggleTodo = mutation({
-      method: (id: number) => id,
-      loader: ({ params: id }) => api.toggleTodo(id),
-    });
-
-    const deleteTodo = mutation({
-      method: (id: number) => id,
-      loader: ({ params: id }) => api.deleteTodo(id),
-    });
-
-    const todos = query(
-      {
-        params: () => 'all' as const,
-        loader: () => api.getTodos(),
-      },
-      insertReactOnMutation(addTodo, {
-        reload: { onMutationResolved: true },
+  () => {
+    const addTodo = craftUse(
+      mutation({
+        method: (title: string) => title,
+        loader: function* ({ params: title }) {
+          return yield* ApiServiceToYield.addTodo(title);
+        },
       }),
-      insertReactOnMutation(toggleTodo, {
-        reload: { onMutationResolved: true },
+    );
+
+    const toggleTodo = craftUse(
+      mutation({
+        method: (id: number) => id,
+        loader: function* ({ params: id }) {
+          return yield* ApiServiceToYield.toggleTodo(id);
+        },
       }),
-      insertReactOnMutation(deleteTodo, {
-        reload: { onMutationResolved: true },
+    );
+
+    const deleteTodo = craftUse(
+      mutation({
+        method: (id: number) => id,
+        loader: function* ({ params: id }) {
+          return yield* ApiServiceToYield.deleteTodo(id);
+        },
       }),
+    );
+
+    const todos = craftUse(
+      query(
+        {
+          params: () => 'all' as const,
+          loader: function* () {
+            const getTodos = yield* ApiServiceToYield.getTodos();
+            return getTodos();
+          },
+        },
+        (context) =>
+          craftPipe(
+            context,
+            insertReactOnMutation(addTodo, {
+              reload: { onMutationResolved: true },
+            }),
+            insertReactOnMutation(toggleTodo, {
+              reload: { onMutationResolved: true },
+            }),
+            insertReactOnMutation(deleteTodo, {
+              reload: { onMutationResolved: true },
+            }),
+          ),
+      ),
     );
 
     return { todos, addTodo, toggleTodo, deleteTodo };
@@ -130,7 +157,7 @@ const { injectPlayground } = craftService(
           @case ('loading') {
             <p class="loading">Loading todos...</p>
           }
-          @case ('error') {
+          @case ('exception') {
             <p class="error">Failed to load todos.</p>
           }
           @default {
@@ -231,14 +258,33 @@ const { injectPlayground } = craftService(
       font-style: italic;
     }
   `,
+  providers: [provideHostName('component:PlaygroundComponent')],
 })
 export default class PlaygroundComponent {
+  private readonly _monitoring = componentMonitoring();
   protected readonly pg = injectPlayground();
 
-  add(input: HTMLInputElement) {
+  add = craftMethod('add', function* (input: HTMLInputElement) {
     const title = input.value.trim();
     if (!title) return;
-    this.pg.addTodo.mutate(title);
+    const pg = yield* PlaygroundToYield();
+    pg.addTodo.mutate(title);
     input.value = '';
-  }
+    return {};
+  });
 }
+
+export type GenDeps_PlaygroundComponent = GetDeps<{
+  deps: {};
+  propertiesDeps: {
+    _monitoring: ExtractDeps<PlaygroundComponent['_monitoring']>;
+    pg: {
+      Playground: ExtractDeps<typeof injectPlayground>['Playground'];
+    };
+    add: ExtractDeps<PlaygroundComponent['add']>;
+  };
+  provided: {
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<PlaygroundComponent>;
+}>;

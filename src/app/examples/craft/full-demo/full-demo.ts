@@ -1,221 +1,245 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
 import {
+  craftUse,
+  asyncProcess,
+  componentMonitoring,
+  craftMethod,
   craftService,
   insertLocalStoragePersister,
   insertPaginationPlaceholderData,
   insertReactOnMutation,
-  asyncProcess,
   mutation,
+  craftPipe,
+  on$,
+  provideHostName,
   query,
   queryParam,
-  state,
-  removeOne,
-  removeMany,
   reactiveWritableSignal,
-  on$,
+  removeMany,
+  removeOne,
   source$,
+  state,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
 } from '@craft-ng/core';
-import { StatusComponent } from '../../../ui/status.component';
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
 import { ApiServiceToYield, type User } from './api.service';
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const { injectFullDemo, provideFullDemo } = craftService(
+const { injectFullDemo, provideFullDemo, FullDemoToYield } = craftService(
   { name: 'FullDemo', scope: 'toProvide' },
-  function* () {
-    const {
-      getDataList,
-      updateItem,
-      bulkDelete: apiBulkDelete,
-    } = yield* ApiServiceToYield(
-      {},
-      ({ getDataList, updateItem, bulkDelete }) => ({
-        getDataList,
-        updateItem,
-        bulkDelete,
-      }),
-    );
+  () => {
+    const reset$ = source$<void>('reset$');
 
-    const reset$ = source$<void>();
-
-    const pagination = queryParam(
-      {
-        state: {
-          page: {
-            fallbackValue: 1,
-            parse: (value) => parseInt(value, 10),
-            serialize: (value) => String(value),
-          },
-          pageSize: {
-            fallbackValue: 4,
-            parse: (value) => parseInt(value, 10),
-            serialize: (value) => String(value),
+    const pagination = craftUse(
+      queryParam(
+        {
+          state: {
+            page: {
+              fallbackValue: 1,
+              parse: (value) => parseInt(value, 10),
+              serialize: (value) => String(value),
+            },
+            pageSize: {
+              fallbackValue: 4,
+              parse: (value) => parseInt(value, 10),
+              serialize: (value) => String(value),
+            },
           },
         },
-      },
-      ({ patch, state, reset }) => ({
-        nextPage: () => patch({ page: state().page + 1 }),
-        previousPage: () => patch({ page: state().page - 1 }),
-        updatePageSize: (newPageSize: number) =>
-          patch({ pageSize: newPageSize, page: 1 }),
-        reset: on$(reset$, () => reset()),
-      }),
+        ({ patch, state, reset }) => ({
+          nextPage: () => patch({ page: state().page + 1 }),
+          previousPage: () => patch({ page: state().page - 1 }),
+          updatePageSize: (newPageSize: number) =>
+            patch({ pageSize: newPageSize, page: 1 }),
+          reset: on$(reset$, () => reset()),
+        }),
+      ),
     );
 
-    const bulkDelete = mutation({
-      method: (ids: string[]) => ids,
-      loader: async ({ params: ids }) => {
-        await apiBulkDelete(ids);
-        return ids;
-      },
-    });
-
-    const delayUserDeletion = asyncProcess({
-      method: (payload: { user: User; action: 'delete' | 'cancel' }) => payload,
-      identifier: ({ user: { id } }) => id,
-      loader: async ({ params: { user, action } }) => {
-        if (action === 'cancel') {
-          return undefined;
-        }
-        await wait(5000);
-        return user;
-      },
-    });
-
-    const deleteUser = mutation({
-      fromResourceById: delayUserDeletion._resourceById,
-      params: (resource) => {
-        const value = resource?.safeValue();
-        return value
-          ? {
-              ...value,
-              name: value?.name + '-',
-            }
-          : undefined;
-      },
-      identifier: ({ id }) => id,
-      loader: ({ params: user }) => updateItem(user),
-    });
-
-    const users = query(
-      {
-        params: pagination,
-        identifier: (params) => `${params.page}-${params.pageSize}`,
-        loader: ({ params: pagination }) => getDataList(pagination),
-      },
-      insertLocalStoragePersister({
-        storeName: 'demo-app-craft',
-        key: 'full-demo',
-      }),
-      insertPaginationPlaceholderData,
-      insertReactOnMutation(deleteUser, {
-        filter: ({ mutationIdentifier, queryResource }) =>
-          !!queryResource
-            .safeValue()
-            ?.some((item) => item.id === mutationIdentifier),
-        optimisticUpdate: ({ queryResource, mutationIdentifier }) =>
-          removeOne({
-            entities: queryResource.value(),
-            id: mutationIdentifier,
-          }),
-        reload: {
-          onMutationError: true,
-        },
-      }),
-      insertReactOnMutation(deleteUser, {
-        filter: ({ queryResource }) => queryResource.safeValue()?.length === 0,
-        reload: {
-          onMutationResolved: true,
-        },
-      }),
-      insertReactOnMutation(bulkDelete, {
-        filter: ({ queryResource }) =>
-          (queryResource.safeValue()?.length ?? 0) > 0,
-        optimisticUpdate: ({ queryResource, mutationParams }) =>
-          removeMany({
-            entities: queryResource.value(),
-            ids: mutationParams,
-          }),
-      }),
-      insertReactOnMutation(bulkDelete, {
-        filter: ({ queryResource }) => queryResource.safeValue()?.length === 0,
-        reload: {
-          onMutationResolved: true,
+    const bulkDelete = craftUse(
+      mutation({
+        method: (ids: string[]) => ids,
+        loader: function* ({ params: ids }) {
+          return yield* ApiServiceToYield.bulkDelete(ids);
         },
       }),
     );
 
-    const selectedRows = state(
-      reactiveWritableSignal([] as string[], (sync) => ({
-        resetWhenCurrentPageIsResolved: sync(
-          users.currentPageStatus,
-          ({ params, current }) => (params === 'resolved' ? [] : current),
-        ),
-        resetWhenBulkDeleteIsResolved: sync(
-          bulkDelete.status,
-          ({ params, current }) => (params === 'resolved' ? [] : current),
-        ),
-        removeDeletedItemsWhenDeleteUserIsResolved: sync(
-          deleteUser.changes.resolved,
-          ({ params: resolvedIds, current }) =>
-            resolvedIds.length > 0
-              ? removeMany({
-                  entities: current,
-                  ids: resolvedIds,
-                })
-              : current,
-        ),
-      })),
-      ({ state: selectedRowsState }) => ({
-        isAllSelected: computed(
-          () =>
-            users.currentPageData()?.length &&
-            users
-              .currentPageData()
-              ?.every((user) => selectedRowsState().includes(user.id)),
-        ),
+    const delayUserDeletion = craftUse(
+      asyncProcess({
+        method: (payload: { user: User; action: 'delete' | 'cancel' }) =>
+          payload,
+        identifier: ({ user: { id } }) => id,
+        loader: async ({ params: { user, action } }) => {
+          if (action === 'cancel') {
+            return undefined;
+          }
+          await wait(5000);
+          return user;
+        },
       }),
-      ({
-        update,
-        set,
-        state: selectedRowsState,
-        insertions: { isAllSelected },
-      }) => {
-        return {
-          toggleSelection: (id: string) =>
-            update((current) =>
-              current.includes(id)
-                ? current.filter((item) => item !== id)
-                : [...current, id],
-            ),
-          isSelected: (id: string) => {
-            return selectedRowsState().includes(id);
+    );
+
+    const deleteUser = craftUse(
+      mutation({
+        fromResourceById: delayUserDeletion._resourceById,
+        params: (resource) => {
+          const value = resource?.safeValue();
+          return value
+            ? {
+                ...value,
+                name: value?.name + '-',
+              }
+            : undefined;
+        },
+        identifier: ({ id }) => id,
+        loader: function* ({ params: user }) {
+          return yield* ApiServiceToYield.updateItem(user);
+        },
+      }),
+    );
+
+    const users = craftUse(
+      query(
+        {
+          params: pagination,
+          identifier: (params) => `${params.page}-${params.pageSize}`,
+          loader: function* ({ params: pagination }) {
+            return yield* ApiServiceToYield.getDataList(pagination);
           },
-          isAllSelected,
-          isSomeSelected: computed(
-            () =>
-              users
-                .currentPageData()
-                ?.some((user) => selectedRowsState().includes(user.id)) &&
-              !isAllSelected(),
+        },
+        (context) =>
+          craftPipe(
+            context,
+            insertLocalStoragePersister({
+              storeName: 'demo-app-craft',
+              key: 'full-demo',
+            }),
+            insertPaginationPlaceholderData({ initialValue: [] as User[] }),
+            insertReactOnMutation(deleteUser, {
+              filter: ({ mutationIdentifier, queryResource }) =>
+                !!queryResource
+                  .safeValue()
+                  ?.some((item) => item.id === mutationIdentifier),
+              optimisticUpdate: ({ queryResource, mutationIdentifier }) =>
+                removeOne({
+                  entities: queryResource.value(),
+                  id: mutationIdentifier,
+                }),
+              reload: {
+                onMutationException: true,
+              },
+            }),
+            insertReactOnMutation(deleteUser, {
+              filter: ({ queryResource }) =>
+                queryResource.safeValue()?.length === 0,
+              reload: {
+                onMutationResolved: true,
+              },
+            }),
+            insertReactOnMutation(bulkDelete, {
+              filter: ({ queryResource }) =>
+                (queryResource.safeValue()?.length ?? 0) > 0,
+              optimisticUpdate: ({ queryResource, mutationParams }) =>
+                removeMany({
+                  entities: queryResource.value(),
+                  ids: mutationParams,
+                }),
+            }),
+            insertReactOnMutation(bulkDelete, {
+              filter: ({ queryResource }) =>
+                queryResource.safeValue()?.length === 0,
+              reload: {
+                onMutationResolved: true,
+              },
+            }),
           ),
-          toggleAllSelection: () => {
-            if (isAllSelected()) {
-              set([]);
-            } else {
-              const allIds =
-                users.currentPageData()?.map((user) => user.id) || [];
-              set(allIds);
-            }
-          },
-        };
-      },
-      ({ set }) => ({
-        reset: on$(reset$, () => set([])),
-      }),
+      ),
+    );
+
+    const selectedRows = craftUse(
+      state(
+        reactiveWritableSignal([] as string[], (sync) => ({
+          resetWhenCurrentPageIsResolved: sync(
+            users.currentPageStatus,
+            ({ params, current }) => (params === 'resolved' ? [] : current),
+          ),
+          resetWhenBulkDeleteIsResolved: sync(
+            bulkDelete.status,
+            ({ params, current }) => (params === 'resolved' ? [] : current),
+          ),
+          removeDeletedItemsWhenDeleteUserIsResolved: sync(
+            deleteUser.changes.resolved,
+            ({ params: resolvedIds, current }) =>
+              resolvedIds.length > 0
+                ? removeMany({
+                    entities: current,
+                    ids: resolvedIds,
+                  })
+                : current,
+          ),
+        })),
+        (context) =>
+          craftPipe(
+            context,
+            ({ state: selectedRowsState }) => ({
+              isAllSelected: computed(
+                () =>
+                  users.currentPageData()?.length &&
+                  users
+                    .currentPageData()
+                    ?.every((user) => selectedRowsState().includes(user.id)),
+              ),
+            }),
+            ({
+              update,
+              set,
+              state: selectedRowsState,
+              insertions: { isAllSelected },
+            }) => {
+              return {
+                toggleSelection: (id: string) =>
+                  update((current) =>
+                    current.includes(id)
+                      ? current.filter((item) => item !== id)
+                      : [...current, id],
+                  ),
+                isSelected: (id: string) => {
+                  return selectedRowsState().includes(id);
+                },
+                isAllSelected,
+                isSomeSelected: computed(
+                  () =>
+                    users
+                      .currentPageData()
+                      ?.some((user) => selectedRowsState().includes(user.id)) &&
+                    !isAllSelected(),
+                ),
+                toggleAllSelection: () => {
+                  if (isAllSelected()) {
+                    set([]);
+                  } else {
+                    const allIds =
+                      users.currentPageData()?.map((user) => user.id) || [];
+                    set(allIds);
+                  }
+                },
+              };
+            },
+            ({ set }) => ({
+              reset: on$(reset$, () => set([])),
+            }),
+          ),
+      ),
     );
 
     return {
@@ -396,13 +420,40 @@ const { injectFullDemo, provideFullDemo } = craftService(
   `,
   styleUrls: ['./full-demo.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [provideFullDemo()],
+  providers: [provideFullDemo(), provideHostName('component:FullDemoCraft')],
 })
 export default class FullDemoCraft {
+  private readonly _monitoring = componentMonitoring();
   protected readonly store = injectFullDemo();
 
-  protected updatePageSize(event: Event) {
-    const value = Number((event.target as HTMLSelectElement).value);
-    this.store.pagination.updatePageSize(value);
-  }
+  protected updatePageSize = craftMethod(
+    'updatePageSize',
+    function* (event: Event) {
+      const value = Number((event.target as HTMLSelectElement).value);
+      const pagination = yield* FullDemoToYield.pagination();
+      pagination.updatePageSize(value);
+    },
+  );
+
+  test = injectFullDemo.users.currentPageData();
 }
+
+export type GenDeps_FullDemoCraft = GetDeps<{
+  deps: {
+    CommonModule: CommonModule;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+  };
+  propertiesDeps: {
+    _monitoring: ExtractDeps<FullDemoCraft['_monitoring']>;
+    store: {
+      FullDemo: ExtractDeps<typeof injectFullDemo>['FullDemo'];
+    };
+    updatePageSize: ExtractDeps<FullDemoCraft['updatePageSize']>;
+    test: ExtractDeps<FullDemoCraft['test']>;
+  };
+  provided: {
+    FullDemo: ReturnType<typeof provideFullDemo>;
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<FullDemoCraft>;
+}>;

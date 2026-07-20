@@ -1,14 +1,24 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import {
+  craftUse,
+  componentMonitoring,
   insertLocalStoragePersister,
   insertPaginationPlaceholderData,
   insertReactOnMutation,
+  craftPipe,
   mutation,
+  provideHostName,
   query,
   queryParam,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
 } from '@craft-ng/core';
-import { StatusComponent } from '../../../ui/status.component';
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
 import { injectApiService, User } from './api.service';
 
 @Component({
@@ -117,69 +127,81 @@ import { injectApiService, User } from './api.service';
   `,
   styleUrls: ['./granular-mutation.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideHostName('component:GranularMutation')],
 })
 export default class GranularMutation {
-  protected readonly pagination = queryParam(
-    {
-      state: {
-        page: {
-          fallbackValue: 1,
-          parse: (value) => parseInt(value, 10),
-          serialize: (value) => String(value),
-        },
-        pageSize: {
-          fallbackValue: 4,
-          parse: (value) => parseInt(value, 10),
-          serialize: (value) => String(value),
+  private readonly _monitoring = componentMonitoring();
+  protected readonly pagination = craftUse(
+    queryParam(
+      {
+        state: {
+          page: {
+            fallbackValue: 1,
+            parse: (value) => parseInt(value, 10),
+            serialize: (value) => String(value),
+          },
+          pageSize: {
+            fallbackValue: 4,
+            parse: (value) => parseInt(value, 10),
+            serialize: (value) => String(value),
+          },
         },
       },
-    },
-    ({ patch, state }) => ({
-      nextPage: () => patch({ page: state().page + 1 }),
-      previousPage: () => patch({ page: state().page - 1 }),
-      updatePageSize: (newPageSize: number) =>
-        patch({ pageSize: newPageSize, page: 1 }),
-    }),
+      ({ patch, state }) => ({
+        nextPage: () => patch({ page: state().page + 1 }),
+        previousPage: () => patch({ page: state().page - 1 }),
+        updatePageSize: (newPageSize: number) =>
+          patch({ pageSize: newPageSize, page: 1 }),
+      }),
+    ),
   );
   private readonly apiService = injectApiService();
 
-  protected readonly updateUserName = mutation({
-    method: (payload: User) => ({
-      ...payload,
-      name: payload.name + '-',
+  protected readonly updateUserName = craftUse(
+    mutation({
+      method: (payload: User) => ({
+        ...payload,
+        name: payload.name + '-',
+      }),
+      identifier: ({ id }) => id,
+      loader: ({ params: user }) => this.apiService.updateItem(user),
     }),
-    identifier: ({ id }) => id,
-    loader: ({ params: user }) => this.apiService.updateItem(user),
-  });
+  );
 
-  protected readonly usersQuery = query(
-    {
-      params: this.pagination,
-      identifier: (params) => `${params.page}-${params.pageSize}`,
-      loader: ({ params: pagination }) => {
-        return this.apiService.getDataList(pagination);
+  protected readonly usersQuery = craftUse(
+    query(
+      {
+        params: this.pagination,
+        identifier: (params) => `${params.page}-${params.pageSize}`,
+        loader: ({ params: pagination }) => {
+          return this.apiService.getDataList(pagination);
+        },
       },
-    },
-    insertLocalStoragePersister({
-      storeName: 'demo-app',
-      key: 'granular',
-    }),
-    insertPaginationPlaceholderData,
-    insertReactOnMutation(this.updateUserName, {
-      filter: ({ mutationIdentifier, queryResource }) =>
-        queryResource
-          .safeValue()
-          ?.some((item) => item.id === mutationIdentifier) ?? false,
-      optimisticUpdate: ({
-        queryResource,
-        mutationIdentifier,
-        mutationParams,
-      }) => {
-        return queryResource.value()?.map((item) => {
-          return item.id === mutationIdentifier ? mutationParams : item;
-        });
-      },
-    }),
+      (context) =>
+        craftPipe(
+          context,
+          insertLocalStoragePersister({
+            storeName: 'demo-app',
+            key: 'granular',
+          }),
+          insertPaginationPlaceholderData({ initialValue: [] as User[] }),
+          insertReactOnMutation(this.updateUserName, {
+            filter: ({ mutationIdentifier, queryResource }) =>
+              queryResource
+                .safeValue()
+                ?.some((item) => item.id === mutationIdentifier) ?? false,
+            optimisticUpdate: ({
+              queryResource,
+              mutationIdentifier,
+              mutationParams,
+            }) => {
+              return queryResource.value()?.map((item) => {
+                return item.id === mutationIdentifier ? mutationParams : item;
+              });
+            },
+          }),
+        ),
+    ),
   );
 
   protected updatePageSize(event: Event) {
@@ -187,3 +209,23 @@ export default class GranularMutation {
     this.pagination.updatePageSize(value);
   }
 }
+
+export type GenDeps_GranularMutation = GetDeps<{
+  deps: {
+    CommonModule: CommonModule;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+  };
+  propertiesDeps: {
+    _monitoring: ExtractDeps<GranularMutation['_monitoring']>;
+    pagination: ExtractDeps<GranularMutation['pagination']>;
+    apiService: {
+      ApiService: ExtractDeps<typeof injectApiService>['ApiService'];
+    };
+    updateUserName: ExtractDeps<GranularMutation['updateUserName']>;
+    usersQuery: ExtractDeps<GranularMutation['usersQuery']>;
+  };
+  provided: {
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<GranularMutation>;
+}>;

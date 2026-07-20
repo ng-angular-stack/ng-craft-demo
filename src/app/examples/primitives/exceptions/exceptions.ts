@@ -1,6 +1,14 @@
-import { CommonModule } from '@angular/common';
 import { Component, signal } from '@angular/core';
-import { craftException, query } from '@craft-ng/core';
+import {
+  craftUse,
+  componentMonitoring,
+  craftException,
+  provideHostName,
+  query,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
+} from '@craft-ng/core';
 
 type User = {
   id: string;
@@ -12,7 +20,6 @@ type Scenario = 'success' | 'not-found' | 'consent-missing' | 'forbidden';
 
 @Component({
   selector: 'app-exceptions',
-  imports: [CommonModule],
   styles: [
     `
       .actions {
@@ -65,10 +72,27 @@ type Scenario = 'success' | 'not-found' | 'consent-missing' | 'forbidden';
         Access forbidden
       </button>
     </div>
+    status{{userQuery.status()}} : @if(userQuery.safeValue()){{{userQuery.safeValue()?.id}}}
 
-    @if (userQuery.isLoading()) {
+    @switch (userQuery.status()) {
+
+      @case ("idle")
+      @case ('reloading')
+      @case ("loading") {
       <p>Loading user...</p>
-    } @else if (userQuery.exceptions().loader; as exception) {
+
+      }
+      @case ('local')
+      @case ('resolved') {
+        @let user = userQuery.value()!;
+      <div>
+        <p><strong>ID:</strong> {{ user.id }}</p>
+        <p><strong>Name:</strong> {{ user.name }}</p>
+        <p><strong>Email:</strong> {{ user.email }}</p>
+      </div>
+      }
+      @case ('exception') {
+      @let exception = userQuery.exceptions().loader!;
       <!-- code: "UserNotFoundException" | "UserConsentMissingException" | "UserAccessForbiddenException" -->
       @let exceptionCode = exception.code;
       @switch (exceptionCode) {
@@ -85,23 +109,23 @@ type Scenario = 'success' | 'not-found' | 'consent-missing' | 'forbidden';
           </button>
         }
         @default never;
+        }
       }
-    } @else if (userQuery.safeValue(); as user) {
-      <div>
-        <p><strong>ID:</strong> {{ user.id }}</p>
-        <p><strong>Name:</strong> {{ user.name }}</p>
-        <p><strong>Email:</strong> {{ user.email }}</p>
-      </div>
     }
+
   `,
+  providers: [provideHostName('component:ExceptionsComponent')],
 })
 export default class ExceptionsComponent {
+  private readonly _monitoring = componentMonitoring();
   private readonly scenario = signal<Scenario>('success');
 
-  protected readonly userQuery = query({
-    params: () => this.scenario(),
-    loader: async ({ params }) => this.mockGetUser(params),
-  });
+  protected readonly userQuery = craftUse(
+    query({
+      params: () => this.scenario(),
+      loader: async ({ params }) => this.mockGetUser(params),
+    }),
+  );
 
   protected setScenario(scenario: Scenario): void {
     this.scenario.set(scenario);
@@ -139,3 +163,16 @@ export default class ExceptionsComponent {
     }
   }
 }
+
+export type GenDeps_ExceptionsComponent = GetDeps<{
+  deps: {};
+  propertiesDeps: {
+    _monitoring: ExtractDeps<ExceptionsComponent['_monitoring']>;
+    scenario: ExtractDeps<ExceptionsComponent['scenario']>;
+    userQuery: ExtractDeps<ExceptionsComponent['userQuery']>;
+  };
+  provided: {
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<ExceptionsComponent>;
+}>;

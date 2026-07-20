@@ -1,19 +1,22 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { injectApiService } from './api.service';
-import { Router } from '@angular/router';
-import { StatusComponent } from '../../../ui/status.component';
 import {
-  toCraftService,
+  componentMonitoring,
+  craftMethod,
+  CraftRouterToYield,
+  craftUse,
   insertLocalStoragePersister,
+  provideHostName,
   query,
+  type ExtractDeps,
+  type GetDeps,
+  type GetPublicComponentProperties,
 } from '@craft-ng/core';
-
-const { injectRouter } = toCraftService({
-  name: 'Router',
-  scope: 'global',
-  token: Router,
-});
+import {
+  StatusComponent,
+  type GenDeps_StatusComponent,
+} from '../../../ui/status.component';
+import { ApiServiceToYield } from './api.service';
 
 @Component({
   selector: 'app-query',
@@ -40,31 +43,60 @@ const { injectRouter } = toCraftService({
     <button (click)="previousPage()">Previous user</button>
     <button (click)="nextPage()">Next user</button>
   `,
+  providers: [provideHostName('component:GlobalQuery')],
 })
 export default class GlobalQuery {
+  private readonly _monitoring = componentMonitoring();
   public readonly userId = input<string>();
 
-  private readonly apiService = injectApiService();
-  private readonly router = injectRouter(undefined, ({ navigate }) => ({
-    navigate,
-  }));
-
-  protected readonly userQuery = query(
-    {
-      params: this.userId,
-      loader: ({ params: userId }) => this.apiService.getItemById(userId),
-    },
-    insertLocalStoragePersister({
-      storeName: 'demo-app',
-      key: 'user-query',
-    }),
+  protected readonly userQuery = craftUse(
+    query(
+      {
+        params: this.userId,
+        loader: function* ({ params: userId }) {
+          return yield* ApiServiceToYield.getItemById(userId);
+        },
+      },
+      insertLocalStoragePersister({
+        storeName: 'demo-app',
+        key: 'user-query',
+      }),
+    ),
   );
 
-  protected nextPage() {
-    this.router.navigate(['query', parseInt(this.userId() ?? '0') + 1]);
-  }
+  protected nextPage = craftMethod('nextPage', this, function* () {
+    return yield* CraftRouterToYield.navigate({
+      to: 'query/:userId',
+      params: {
+        userId: String(parseInt(this.userId() ?? '0', 10) + 1),
+      },
+    });
+  });
 
-  protected previousPage() {
-    this.router.navigate(['query', parseInt(this.userId() ?? '10') - 1]);
-  }
+  protected previousPage = craftMethod('previousPage', this, function* () {
+    return yield* CraftRouterToYield.navigate({
+      to: 'query/:userId',
+      params: {
+        userId: String(parseInt(this.userId() ?? '10', 10) - 1),
+      },
+    });
+  });
 }
+
+export type GenDeps_GlobalQuery = GetDeps<{
+  deps: {
+    CommonModule: CommonModule;
+    GenDeps_StatusComponent: GenDeps_StatusComponent;
+  };
+  propertiesDeps: {
+    _monitoring: ExtractDeps<GlobalQuery['_monitoring']>;
+    userId: ExtractDeps<GlobalQuery['userId']>;
+    userQuery: ExtractDeps<GlobalQuery['userQuery']>;
+    nextPage: ExtractDeps<GlobalQuery['nextPage']>;
+    previousPage: ExtractDeps<GlobalQuery['previousPage']>;
+  };
+  provided: {
+    HostName: ReturnType<typeof provideHostName>;
+  };
+  publicProperties: GetPublicComponentProperties<GlobalQuery>;
+}>;
