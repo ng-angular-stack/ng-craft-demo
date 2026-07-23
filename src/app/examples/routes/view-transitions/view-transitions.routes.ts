@@ -7,7 +7,7 @@ import {
   craftService,
   query,
   craftRoute,
-  untilSettled,
+  craftUntilSettled,
   viewTransitionPayload,
   type CanRun,
   type ParentRoutes,
@@ -47,7 +47,7 @@ const { ViewTransitionAccessToYield } = craftService(
 
 const slowDetailGuard = craftGen(function* () {
   const accessRef = yield* ViewTransitionAccessToYield();
-  const access = yield* untilSettled(accessRef);
+  const access = yield* craftUntilSettled(accessRef);
   // Always allowed here — the `craftException` branch only exists so the guard
   // carries a typed exception code (a guard with no exception branch collapses
   // `craftRoute()`'s `Def` inference). `handleExceptions` routes it after commit.
@@ -73,7 +73,7 @@ export const {
       loadComponent: ({ withRetry }: CraftRouteLazyLoadHelpers) =>
         withRetry(import('./photo-detail')),
       // The route DECLARES the shared-element payload shape (mirrors how
-      // `queryParams` declares query-param shape): every link/navigation must pass
+      // `queryParams` declares query-params shape): every link/navigation must pass
       // `viewTransition: { name; image } | null`, and the skeleton reads it via the
       // generated `injectViewTransitionsPhotoIdViewTransition()` helper.
       withLoaderViewTransitionImage: viewTransitionPayload<{
