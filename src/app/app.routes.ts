@@ -1,252 +1,243 @@
-import type { Router } from '@angular/router';
+import type { ActivatedRoute, Router } from '@angular/router';
+import { loadCraftComponent } from '@craft-ng/component';
 import {
-  assertChildRouteMounts,
   assertExhaustiveRouteExceptions,
   craftExceptionHandler,
   craftRoute,
   craftRoutes,
   queryParams,
   type CanRun,
+  type ComponentDepsOf,
   type CraftRouteExceptionType,
-  type CraftRouteLazyLoadHelpers,
-  type ValidateCascadeRoutesFile,
+  type RouteCheckedDI,
 } from '@craft-ng/core';
 import { authGuard } from './guard/auth.guard';
 
-export const {
-  demoRoutes,
-  injectDemoTeamIdParams,
-  injectDemoCraftLazyLayoutTeamIdData,
-  injectDemoUserIdParams,
-  injectDemoQueryParamsQueryParams,
-} = craftRoutes('demo', [
-  craftRoute(
-    'query/:userId',
-    {
-      componentDeps:
-        {} as import('./examples/primitives/query/query').GenDeps_GlobalQuery,
-      loadComponent: ({ withRetry }) =>
-        withRetry(import('./examples/primitives/query/query')),
-    },
-  ),
+export const { demoRoutes } = craftRoutes('demo', [
   {
-    // Slow guard + slow resolve demo for `CraftRouterOutlet`. Lazy child
-    // collection so it stays out of this file's (saturated) cascade DI budget.
+    path: 'query/:userId',
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/primitives/query/query')).then(
+        ({ default: component }) => component,
+      ),
+    ),
+  },
+  {
     path: 'slow-page',
     loadChildren: ({ withRetry }) =>
       withRetry(import('./examples/routes/slow-page/slow-page.routes')).then(
-        (m) => m.slowPageRoutes,
+        (module) => module.slowPageRoutes,
       ),
   },
   {
-    // View Transitions demo (gallery → detail, shared-element morph). Lazy child
-    // collection, same rationale as slow-page: kept out of the cascade DI budget.
     path: 'view-transitions',
     loadChildren: ({ withRetry }) =>
       withRetry(
         import('./examples/routes/view-transitions/view-transitions.routes'),
-      ).then((m) => m.viewTransitionsRoutes),
+      ).then((module) => module.viewTransitionsRoutes),
   },
   {
     path: '',
-    loadComponent: ({ withRetry }) => withRetry(import('./test')),
-    componentDeps: {} as import('./test').GenDeps_TestComponent,
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/component/component-demo')).then(
+        ({ componentDemo }) => componentDemo,
+      ),
+    ),
   },
   {
     path: 'mutation/:userId',
-    componentDeps:
-      {} as import('./examples/primitives/mutation/mutation').GenDeps_GlobalQuery,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/primitives/mutation/mutation')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/primitives/mutation/mutation')).then(
+        ({ default: component }) => component,
+      ),
+    ),
   },
   {
     path: 'list-with-pagination',
-    componentDeps:
-      {} as import('./examples/primitives/list-with-pagination/list-with-pagination').GenDeps_ListWithPagination,
-    loadComponent: ({ withRetry }) =>
+    ...loadCraftComponent(({ withRetry }) =>
       withRetry(
         import(
           './examples/primitives/list-with-pagination/list-with-pagination'
         ),
-      ),
+      ).then(({ default: component }) => component),
+    ),
   },
   {
     path: 'granular-mutation',
-    componentDeps:
-      {} as import('./examples/primitives/granular-mutation/granular-mutation').GenDeps_GranularMutation,
-    loadComponent: ({ withRetry }) =>
+    ...loadCraftComponent(({ withRetry }) =>
       withRetry(
         import('./examples/primitives/granular-mutation/granular-mutation'),
-      ),
+      ).then(({ default: component }) => component),
+    ),
   },
   {
     path: 'full-demo',
-    componentDeps:
-      {} as import('./examples/primitives/full-demo/full-demo').GenDeps_FullDemo,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/primitives/full-demo/full-demo')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/primitives/full-demo/full-demo')).then(
+        ({ default: component }) => component,
+      ),
+    ),
   },
   {
     path: 'pixel-art',
-    componentDeps:
-      {} as import('./examples/primitives/pixel-art/pixel-art').GenDeps_PixelArt,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/primitives/pixel-art/pixel-art')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/primitives/pixel-art/pixel-art')).then(
+        ({ default: component }) => component,
+      ),
+    ),
   },
   {
     path: 'pixel-art-matrix',
-    componentDeps:
-      {} as import('./examples/primitives/pixel-art-matrix/pixel-art-matrix').GenDeps_PixelArtMatrix,
-    loadComponent: ({ withRetry }) =>
+    ...loadCraftComponent(({ withRetry }) =>
       withRetry(
         import('./examples/primitives/pixel-art-matrix/pixel-art-matrix'),
-      ),
+      ).then(({ default: component }) => component),
+    ),
   },
   {
     path: 'exceptions',
-    componentDeps:
-      {} as import('./examples/primitives/exceptions/exceptions').GenDeps_ExceptionsComponent,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/primitives/exceptions/exceptions')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/primitives/exceptions/exceptions')).then(
+        ({ default: component }) => component,
+      ),
+    ),
   },
   {
     path: 'exception-query-params',
-    componentDeps:
-      {} as import('./examples/primitives/exceptions/exception-query-params').GenDeps_ExceptionQueryParamsComponent,
-    loadComponent: ({ withRetry }) =>
+    ...loadCraftComponent(({ withRetry }) =>
       withRetry(
         import('./examples/primitives/exceptions/exception-query-params'),
-      ),
+      ).then(({ default: component }) => component),
+    ),
   },
   {
     path: 'craft/query/:userId',
-    componentDeps:
-      {} as import('./examples/craft/query/query').GenDeps_GlobalQuery,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/craft/query/query')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/craft/query/query')).then(
+        ({ default: component }) => component,
+      ),
+    ),
   },
   {
     path: 'craft/mutation/:userId',
-    componentDeps:
-      {} as import('./examples/craft/mutation/mutation').GenDeps_MutationCraft,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/craft/mutation/mutation')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/craft/mutation/mutation')).then(
+        ({ default: component }) => component,
+      ),
+    ),
   },
   {
     path: 'craft/list-with-pagination',
-    componentDeps:
-      {} as import('./examples/craft/list-with-pagination/list-with-pagination').GenDeps_ListWithPaginationCraft,
-    loadComponent: ({ withRetry }) =>
+    ...loadCraftComponent(({ withRetry }) =>
       withRetry(
         import('./examples/craft/list-with-pagination/list-with-pagination'),
-      ),
+      ).then(({ default: component }) => component),
+    ),
   },
   {
     path: 'craft/granular-mutation',
-    componentDeps:
-      {} as import('./examples/craft/granular-mutation/granular-mutation').GenDeps_GranularMutationCraft,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/craft/granular-mutation/granular-mutation')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(
+        import('./examples/craft/granular-mutation/granular-mutation'),
+      ).then(({ default: component }) => component),
+    ),
   },
   {
     path: 'craft/full-demo',
-    componentDeps:
-      {} as import('./examples/craft/full-demo/full-demo').GenDeps_FullDemoCraft,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/craft/full-demo/full-demo')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/craft/full-demo/full-demo')).then(
+        ({ default: component }) => component,
+      ),
+    ),
   },
   {
     path: 'craft/lazy-layout/:teamId',
-    data: {
-      someParentRouteData: 'foo',
-    },
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/craft/lazy-layout/lazy-layout')),
-    componentDeps:
-      {} as import('./examples/craft/lazy-layout/lazy-layout').GenDeps_LazyLayoutComponent,
+    data: { someParentRouteData: 'foo' },
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/craft/lazy-layout/lazy-layout')).then(
+        ({ default: component }) => component,
+      ),
+    ),
     loadChildren: ({ withRetry }) =>
       withRetry(import('./examples/craft/lazy-layout/lazy-layout.routes')).then(
-        (m) => m.lazyLayoutRoutes,
+        (module) => module.lazyLayoutRoutes,
       ),
   },
   {
     path: 'login-form',
-    componentDeps:
-      {} as import('./examples/primitives/forms/login-form').GenDeps_LoginFormComponent,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/primitives/forms/login-form')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/primitives/forms/login-form')).then(
+        ({ default: component }) => component,
+      ),
+    ),
   },
   {
     path: 'craft-service/counter',
-    componentDeps:
-      {} as import('./examples/craft-service/craft-service-counter').GenDeps_CraftServiceCounterComponent,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/craft-service/craft-service-counter')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/craft-service/craft-service-counter')).then(
+        ({ default: component }) => component,
+      ),
+    ),
   },
   {
     path: 'craft-service/user-detail',
-    componentDeps:
-      {} as import('./examples/craft-service/craft-service-user-detail').GenDeps_CraftServiceUserDetailComponent,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/craft-service/craft-service-user-detail')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(
+        import('./examples/craft-service/craft-service-user-detail'),
+      ).then(({ default: component }) => component),
+    ),
   },
   {
     path: 'demo-send-context',
-    componentDeps:
-      {} as import('./examples/ia/demo-send-context/demo-send-context').GenDeps_DemoSendContextComponent,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/ia/demo-send-context/demo-send-context')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(
+        import('./examples/ia/demo-send-context/demo-send-context'),
+      ).then(({ default: component }) => component),
+    ),
   },
   {
     path: 'playground',
-    componentDeps:
-      {} as import('./examples/playground/playground').GenDeps_PlaygroundComponent,
-    loadComponent: ({ withRetry }) =>
-      withRetry(import('./examples/playground/playground')),
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/playground/playground')).then(
+        ({ default: component }) => component,
+      ),
+    ),
   },
   {
     path: 'query-params',
-    componentDeps:
-      {} as import('./examples/routes/list-with-pagination/qp-list-with-pagination').GenDeps_QpListWithPagination,
-    loadComponent: ({ withRetry }) =>
+    ...loadCraftComponent(({ withRetry }) =>
       withRetry(
         import(
           './examples/routes/list-with-pagination/qp-list-with-pagination'
         ),
-      ),
-    queryParams: () =>
-      queryParams(
+      ).then(({ default: component }) => component),
+    ),
+    queryParams: function* () {
+      const { pagination } = yield* queryParams(
+        'pagination',
         {
           state: {
-            page: {
-              fallbackValue: 1,
-              parse: (value) => parseInt(value, 10),
-              serialize: (value) => String(value),
-            },
-            pageSize: {
-              fallbackValue: 4,
-              parse: (value) => parseInt(value, 10),
-              serialize: (value) => String(value),
-            },
+            page: { fallbackValue: 1, parse: Number, serialize: String },
+            pageSize: { fallbackValue: 4, parse: Number, serialize: String },
           },
         },
         ({ patch, state }) => ({
           nextPage: () => patch({ page: state().page + 1 }),
           previousPage: () => patch({ page: state().page - 1 }),
-          updatePageSize: (newPageSize: number) =>
-            patch({ pageSize: newPageSize, page: 1 }),
+          updatePageSize: (pageSize: number) => patch({ pageSize, page: 1 }),
         }),
-      ),
+      );
+      return pagination;
+    },
   },
   craftRoute(
     'guard-demo',
     {
-      componentDeps:
-        {} as import('./examples/routes/guard-demo/GuardDemo').GenDeps_GuardDemo,
-      loadComponent: ({ withRetry }: CraftRouteLazyLoadHelpers) =>
+      ...loadCraftComponent(({ withRetry }) =>
         withRetry(import('./examples/routes/guard-demo/GuardDemo')).then(
-          (m) => m.GuardDemo,
+          ({ GuardDemo }) => GuardDemo,
         ),
+      ),
       canActivate: function* () {
         return yield* authGuard();
       },
@@ -268,18 +259,8 @@ declare module '@craft-ng/core' {
   }
 }
 
-// Required-handler safety net: a route whose guards/resolve can throw but that was
-// authored with the 2-arg `craftRoute()` form (no handlers) shows its reachable codes as
-// unhandled here. The 3-arg form already enforces exhaustiveness at the call site.
 assertExhaustiveRouteExceptions(demoRoutes);
 
-// Placement safety: every `.withParent`-pinned lazy child (e.g. view-transitions)
-// must be mounted under the route path it declared. Scoped to this parent file.
-assertChildRouteMounts(demoRoutes);
-
-// Maintained by the `global-exception-registry-match` ESLint autofix: every code a
-// route delegates to the global error component via `globalError()` is mirrored
-// here, so `injectCraftGlobalError()` is typed + exhaustive. Do not edit by hand.
 declare module '@craft-ng/core' {
   interface CraftGlobalExceptionRegistry {
     'guard-demo': {
@@ -292,20 +273,200 @@ declare module '@craft-ng/core' {
   }
 }
 
-// Cascade DI check — one alias for the whole route file (no per-component boilerplate).
-// Route-level providers are already stripped from META_DATA[N].missingProvider
-// by craftRoutes; only the app-level context needs to be passed here.
-// Cascade DI check — one alias for the whole route file (no per-component boilerplate).
-// AppProvidedNames: CraftRouter (scope 'manuallyProvidedAtRoot', provided by
-// provideCraftRouter in app.config — its tracked dependency surfaces in
-// missingProvider as metadata, so it must be acknowledged by NAME here).
-// AppProvidedValues: Router (provided by value via provideCraftRouter).
-// Note: AppProvidedServiceNamesOf<typeof appConfig> hits TS2589 for this app because
-// the demo providers (fn wrappers, monitoring, etc.) are too complex for TypeScript
-// to evaluate in a generic constraint. Listing the value types explicitly is the workaround.
-type _CheckDemoDI = ValidateCascadeRoutesFile<
+type DemoRouteCheckedDI<
+  Component,
+  RouteInputs extends string = never,
+  Context extends string = 'demo route component',
+> = RouteCheckedDI<
+  ComponentDepsOf<Component>,
   'CraftRouter',
-  Router,
-  typeof demoRoutes
+  Router | ActivatedRoute,
+  Context,
+  RouteInputs
 >;
-type _CanRunDemo = CanRun<_CheckDemoDI>;
+
+type _CanRunQuery = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/primitives/query/query'))['default'],
+    'userId',
+    'path: "query/:userId"'
+  >
+>;
+type _CanRunComponentDemo = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/component/component-demo'))['componentDemo'],
+    never,
+    'path: ""'
+  >
+>;
+type _CanRunMutation = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/primitives/mutation/mutation'))['default'],
+    'userId',
+    'path: "mutation/:userId"'
+  >
+>;
+type _CanRunListWithPagination = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/primitives/list-with-pagination/list-with-pagination'))['default'],
+    never,
+    'path: "list-with-pagination"'
+  >
+>;
+type _CanRunGranularMutation = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/primitives/granular-mutation/granular-mutation'))['default'],
+    never,
+    'path: "granular-mutation"'
+  >
+>;
+type _CanRunFullDemo = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/primitives/full-demo/full-demo'))['default'],
+    never,
+    'path: "full-demo"'
+  >
+>;
+type _CanRunPixelArt = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/primitives/pixel-art/pixel-art'))['default'],
+    never,
+    'path: "pixel-art"'
+  >
+>;
+type _CanRunPixelArtMatrix = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/primitives/pixel-art-matrix/pixel-art-matrix'))['default'],
+    never,
+    'path: "pixel-art-matrix"'
+  >
+>;
+type _CanRunExceptions = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/primitives/exceptions/exceptions'))['default'],
+    never,
+    'path: "exceptions"'
+  >
+>;
+type _CanRunExceptionQueryParams = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/primitives/exceptions/exception-query-params'))['default'],
+    never,
+    'path: "exception-query-params"'
+  >
+>;
+type _CanRunCraftQuery = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/craft/query/query'))['default'],
+    'userId',
+    'path: "craft/query/:userId"'
+  >
+>;
+type _CanRunCraftMutation = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/craft/mutation/mutation'))['default'],
+    'userId',
+    'path: "craft/mutation/:userId"'
+  >
+>;
+type _CanRunCraftListWithPagination = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/craft/list-with-pagination/list-with-pagination'))['default'],
+    never,
+    'path: "craft/list-with-pagination"'
+  >
+>;
+type _CanRunCraftGranularMutation = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/craft/granular-mutation/granular-mutation'))['default'],
+    never,
+    'path: "craft/granular-mutation"'
+  >
+>;
+type _CanRunCraftFullDemo = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/craft/full-demo/full-demo'))['default'],
+    never,
+    'path: "craft/full-demo"'
+  >
+>;
+type _CanRunLazyLayout = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/craft/lazy-layout/lazy-layout'))['default'],
+    'teamId' | 'someParentRouteData',
+    'path: "craft/lazy-layout/:teamId"'
+  >
+>;
+type _CanRunLoginForm = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/primitives/forms/login-form'))['default'],
+    never,
+    'path: "login-form"'
+  >
+>;
+type _CanRunCraftServiceCounter = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/craft-service/craft-service-counter'))['default'],
+    never,
+    'path: "craft-service/counter"'
+  >
+>;
+type _CanRunCraftServiceUserDetail = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/craft-service/craft-service-user-detail'))['default'],
+    never,
+    'path: "craft-service/user-detail"'
+  >
+>;
+type _CanRunDemoSendContext = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/ia/demo-send-context/demo-send-context'))['default'],
+    never,
+    'path: "demo-send-context"'
+  >
+>;
+type _CanRunPlayground = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/playground/playground'))['default'],
+    never,
+    'path: "playground"'
+  >
+>;
+type _CanRunQueryParams = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/routes/list-with-pagination/qp-list-with-pagination'))['default'],
+    never,
+    'path: "query-params"'
+  >
+>;
+type _CanRunGuardDemo = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/routes/guard-demo/GuardDemo'))['GuardDemo'],
+    never,
+    'path: "guard-demo"'
+  >
+>;
+
+type ChildMountCheckedDI<
+  ChildRoutes,
+  ParentPath extends string,
+> = ChildRoutes extends {
+  readonly __craftParentMount?: infer Mount extends string;
+}
+  ? [Mount] extends [ParentPath]
+    ? true
+    : [`Child routes pinned to "${Mount}" cannot mount at "${ParentPath}"`]
+  : ['Expected a Craft routes collection'];
+
+type _CanRunViewTransitionsMount = CanRun<
+  ChildMountCheckedDI<
+    (typeof import('./examples/routes/view-transitions/view-transitions.routes'))['viewTransitionsRoutes'],
+    'view-transitions'
+  >
+>;
+type _CanRunLazyLayoutMount = CanRun<
+  ChildMountCheckedDI<
+    (typeof import('./examples/craft/lazy-layout/lazy-layout.routes'))['lazyLayoutRoutes'],
+    'craft/lazy-layout/:teamId'
+  >
+>;

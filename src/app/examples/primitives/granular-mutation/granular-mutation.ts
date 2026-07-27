@@ -1,181 +1,59 @@
-import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component } from '@angular/core';
 import {
-  craftUse,
+  button,
+  craftComponent,
+  div,
+  each,
+  h,
+  h2,
+  option,
+  select,
+  span,
+} from '@craft-ng/component';
+import {
   componentMonitoring,
+  craftPipe,
   insertLocalStoragePersister,
   insertPaginationPlaceholderData,
   insertReactOnMutation,
-  craftPipe,
   mutation,
   provideHostName,
   query,
   queryParams,
-  type ExtractDeps,
-  type GetDeps,
-  type GetPublicComponentProperties,
 } from '@craft-ng/core';
-import {
-  StatusComponent,
-  type GenDeps_StatusComponent,
-} from '../../../ui/status.component';
-import { injectApiService, User } from './api.service';
+import { StatusComponent } from '../../../ui/status.component';
+import { ApiService, type User } from './api.service';
 
-@Component({
-  selector: 'app-granular-mutation',
-  imports: [CommonModule, StatusComponent],
-  template: `
-    <div class="container">
-      <main class="content">
-        <div class="content-wrapper">
-          <div class="card">
-            <h2 class="card-title">
-              User Management:
-              <app-status [status]="usersQuery.currentPageStatus()" />
-            </h2>
-
-            <div class="table-container">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @if (usersQuery.currentPageData()) {
-                    @for (user of usersQuery.currentPageData(); track user.id) {
-                      <tr>
-                        <td>{{ user.id }}</td>
-
-                        <td>{{ user.name }}</td>
-
-                        <td>
-                          <button
-                            class="action-btn"
-                            (click)="updateUserName.mutate(user)"
-                            [disabled]="
-                              updateUserName.select(user.id)?.isLoading()
-                            "
-                          >
-                            Update Name
-                            @if (
-                              updateUserName.select(user.id)?.status() &&
-                              updateUserName.select(user.id)?.status() !==
-                                'idle'
-                            ) {
-                              <app-status
-                                [status]="
-                                  updateUserName.select(user.id)?.status() ??
-                                  'idle'
-                                "
-                              ></app-status>
-                            }
-                          </button>
-                        </td>
-                      </tr>
-                    } @empty {
-                      @if (usersQuery.currentPageStatus() === 'resolved') {
-                        <tr>
-                          <td
-                            colspan="4"
-                            style="text-align: center; padding: 32px"
-                          >
-                            No users found
-                          </td>
-                        </tr>
-                      } @else {
-                        <tr>
-                          <td
-                            colspan="4"
-                            style="text-align: center; padding: 32px"
-                          >
-                            Loading...
-                          </td>
-                        </tr>
-                      }
-                    }
-                  }
-                </tbody>
-              </table>
-            </div>
-
-            <div class="pagination">
-              <select
-                [value]="pagination().pageSize"
-                (change)="updatePageSize($event)"
-                style="margin-right: 8px"
-              >
-                <option [value]="2">2</option>
-                <option [value]="4">4</option>
-                <option [value]="8">8</option>
-                <option [value]="16">16</option>
-              </select>
-              <button class="btn" (click)="pagination.previousPage()">
-                Previous
-              </button>
-              <span class="current-page">
-                {{ pagination().page }}
-              </span>
-              <button class="btn" (click)="pagination.nextPage()">Next</button>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
-  `,
-  styleUrls: ['./granular-mutation.css'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [provideHostName('component:GranularMutation')],
-})
-export default class GranularMutation {
-  private readonly _monitoring = componentMonitoring();
-  protected readonly pagination = craftUse(
-    queryParams(
+const GranularMutation = craftComponent(
+  'GranularMutation',
+  { providers: [provideHostName('component:GranularMutation')] },
+  function* () {
+    componentMonitoring();
+    const { pagination } = yield* queryParams(
+      'pagination',
       {
         state: {
-          page: {
-            fallbackValue: 1,
-            parse: (value) => parseInt(value, 10),
-            serialize: (value) => String(value),
-          },
-          pageSize: {
-            fallbackValue: 4,
-            parse: (value) => parseInt(value, 10),
-            serialize: (value) => String(value),
-          },
+          page: { fallbackValue: 1, parse: Number, serialize: String },
+          pageSize: { fallbackValue: 4, parse: Number, serialize: String },
         },
       },
       ({ patch, state }) => ({
         nextPage: () => patch({ page: state().page + 1 }),
         previousPage: () => patch({ page: state().page - 1 }),
-        updatePageSize: (newPageSize: number) =>
-          patch({ pageSize: newPageSize, page: 1 }),
+        updatePageSize: (pageSize: number) => patch({ pageSize, page: 1 }),
       }),
-    ),
-  );
-  private readonly apiService = injectApiService();
-
-  protected readonly updateUserName = craftUse(
-    mutation({
-      method: (payload: User) => ({
-        ...payload,
-        name: payload.name + '-',
-      }),
+    );
+    const api = yield* ApiService();
+    const { updateUserName } = yield* mutation('updateUserName', {
+      method: (user: User) => ({ ...user, name: `${user.name}-` }),
       identifier: ({ id }) => id,
-      loader: ({ params: user }) => this.apiService.updateItem(user),
-    }),
-  );
-
-  protected readonly usersQuery = craftUse(
-    query(
+      loader: ({ params }) => api.updateItem(params),
+    });
+    const { usersQuery } = yield* query(
+      'usersQuery',
       {
-        params: this.pagination,
-        identifier: (params) => `${params.page}-${params.pageSize}`,
-        loader: ({ params: pagination }) => {
-          return this.apiService.getDataList(pagination);
-        },
+        params: pagination,
+        identifier: ({ page, pageSize }) => `${page}-${pageSize}`,
+        loader: ({ params }) => api.getDataList(params),
       },
       (context) =>
         craftPipe(
@@ -185,47 +63,84 @@ export default class GranularMutation {
             key: 'granular',
           }),
           insertPaginationPlaceholderData({ initialValue: [] as User[] }),
-          insertReactOnMutation(this.updateUserName, {
+          insertReactOnMutation(updateUserName, {
             filter: ({ mutationIdentifier, queryResource }) =>
               queryResource
                 .safeValue()
-                ?.some((item) => item.id === mutationIdentifier) ?? false,
+                ?.some(({ id }) => id === mutationIdentifier) ?? false,
             optimisticUpdate: ({
               queryResource,
               mutationIdentifier,
               mutationParams,
-            }) => {
-              return queryResource.value()?.map((item) => {
-                return item.id === mutationIdentifier ? mutationParams : item;
-              });
-            },
+            }) =>
+              queryResource
+                .value()
+                ?.map((user) =>
+                  user.id === mutationIdentifier ? mutationParams : user,
+                ),
           }),
         ),
-    ),
-  );
+    );
+    return { pagination, updateUserName, usersQuery };
+  },
+  ({ pagination, updateUserName, usersQuery }) =>
+    div([
+      h2([
+        'User Management: ',
+        StatusComponent({
+          status: () => usersQuery.currentPageStatus(),
+        }),
+      ]),
+      h(
+        'table',
+        h(
+          'tbody',
+          each(
+            () => usersQuery.currentPageData() ?? [],
+            { track: (user) => user.id },
+            (user) =>
+              h('tr', [
+                h('td', String(user.id)),
+                h('td', user.name),
+                h(
+                  'td',
+                  button(
+                    {
+                      disabled:
+                        updateUserName.select(user.id)?.isLoading() ?? false,
+                      click: () => updateUserName.mutate(user),
+                    },
+                    [
+                      'Update Name ',
+                      StatusComponent({
+                        status: () =>
+                          updateUserName.select(user.id)?.status() ?? 'idle',
+                      }),
+                    ],
+                  ),
+                ),
+              ]),
+          ),
+        ),
+      ),
+      div([
+        select(
+          {
+            value: String(pagination().pageSize),
+            change: (event) =>
+              pagination.updatePageSize(
+                Number((event.target as HTMLSelectElement).value),
+              ),
+          },
+          [2, 4, 8, 16].map((size) =>
+            option({ value: String(size) }, String(size)),
+          ),
+        ),
+        button({ click: pagination.previousPage }, 'Previous'),
+        span(String(pagination().page)),
+        button({ click: pagination.nextPage }, 'Next'),
+      ]),
+    ]),
+);
 
-  protected updatePageSize(event: Event) {
-    const value = Number((event.target as HTMLSelectElement).value);
-    this.pagination.updatePageSize(value);
-  }
-}
-
-export type GenDeps_GranularMutation = GetDeps<{
-  deps: {
-    CommonModule: CommonModule;
-    GenDeps_StatusComponent: GenDeps_StatusComponent;
-  };
-  propertiesDeps: {
-    _monitoring: ExtractDeps<GranularMutation['_monitoring']>;
-    pagination: ExtractDeps<GranularMutation['pagination']>;
-    apiService: {
-      ApiService: ExtractDeps<typeof injectApiService>['ApiService'];
-    };
-    updateUserName: ExtractDeps<GranularMutation['updateUserName']>;
-    usersQuery: ExtractDeps<GranularMutation['usersQuery']>;
-  };
-  provided: {
-    HostName: ReturnType<typeof provideHostName>;
-  };
-  publicProperties: GetPublicComponentProperties<GranularMutation>;
-}>;
+export default GranularMutation;

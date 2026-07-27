@@ -12,10 +12,11 @@ import {
   retry,
   craftUntilSettled,
   type CanRun,
-  type CraftRouteLazyLoadHelpers,
-  type ValidateCascadeRoutesFile,
+  type ComponentDepsOf,
+  type RouteCheckedDI,
 } from '@craft-ng/core';
 import type { Router } from '@angular/router';
+import { loadCraftComponent } from '@craft-ng/component';
 
 // --- Slow guard + slow resolve demo (non-blocking outlet) -------------------
 // Two deliberately slow async steps (~1.5s each) used to showcase
@@ -29,22 +30,24 @@ import type { Router } from '@angular/router';
 // cascade DI check (`ValidateCascadeRoutesFile`) is already at TypeScript's
 // instantiation-depth ceiling, and `loadChildren` collections are not folded
 // into the parent's budget.
-const { SlowAccessToYield } = craftService(
+const { SlowAccess } = craftService(
   { name: 'SlowAccess', scope: 'global' },
-  () =>
-    query({
+  function* () {
+    const { slowAccess } = yield* query('slowAccess', {
       params: () => true,
       loader: async () => {
         await new Promise((resolve) => setTimeout(resolve, 1500));
         return { allowed: true } as const;
       },
-    }),
+    });
+    return slowAccess;
+  },
 );
 
-const { SlowReportToYield } = craftService(
+const { SlowReport } = craftService(
   { name: 'SlowReport', scope: 'global' },
-  () =>
-    query({
+  function* () {
+    const { slowReport } = yield* query('slowReport', {
       params: () => true,
       loader: async () => {
         await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -53,14 +56,16 @@ const { SlowReportToYield } = craftService(
           totalUsers: 1234,
         };
       },
-    }),
+    });
+    return slowReport;
+  },
 );
 
 // Slow canActivate: suspends ~1.5s until the access check settles, then either
 // allows navigation or short-circuits with a typed NOT_AUTHENTICATED exception
 // routed through `handleExceptions`.
 const slowAccessGuard = craftGen(function* () {
-  const accessRef = yield* SlowAccessToYield();
+  const accessRef = yield* SlowAccess();
   const access = yield* craftUntilSettled(accessRef);
   return access.allowed
     ? access
@@ -71,7 +76,7 @@ const slowAccessGuard = craftGen(function* () {
 // typed REPORT_EMPTY exception — recovered locally below through `catchTag`).
 // The resolved value is consumed via `injectSlowPageRootResolvedData()`.
 const loadSlowReport = craftGen(function* () {
-  const reportRef = yield* SlowReportToYield();
+  const reportRef = yield* SlowReport();
   const report = yield* craftUntilSettled(reportRef);
   return report.totalUsers === 0
     ? craftException({ code: 'REPORT_EMPTY' })
@@ -84,9 +89,11 @@ export const { slowPageRoutes, injectSlowPageRootResolvedData } = craftRoutes(
     craftRoute(
       '',
       {
-        componentDeps: {} as import('./slow-page').GenDeps_SlowPageComponent,
-        loadComponent: ({ withRetry }: CraftRouteLazyLoadHelpers) =>
-          withRetry(import('./slow-page')),
+        ...loadCraftComponent(({ withRetry }) =>
+          withRetry(import('./slow-page')).then(
+            ({ default: component }) => component,
+          ),
+        ),
         // Slow (~1.5s) — the outlet shows the pending component until it settles.
         // `retry` replays the whole guard program on failure (E unchanged, so
         // NOT_AUTHENTICATED still routes through `handleExceptions`).
@@ -119,19 +126,13 @@ export const { slowPageRoutes, injectSlowPageRootResolvedData } = craftRoutes(
 // Required-handler safety net for routes authored with the 2-arg `craftRoute()` form.
 assertExhaustiveRouteExceptions(slowPageRoutes);
 
-// Cascade DI safety for THIS lazy child collection.
-//
-// `ValidateCascadeRoutesFile` in `app.routes.ts` validates only `demoRoutes`'
-// own `META_DATA` — it does NOT descend into `loadChildren`. So a lazy child
-// collection would otherwise ship with ZERO compile-time DI checking. We restore
-// it here, scoped to the child collection, with the same parent context the
-// parent route runs under (app-level `Router` by value; no extra named
-// providers). Any service a child route component injects but that is not
-// provided (app-level, route-level, or by the outlet for resolved data) becomes
-// a TypeScript error here — exactly like the main file's check.
-type _CheckSlowPageDI = ValidateCascadeRoutesFile<
+// O(1) component DI check for this lazy collection. Keeping the check local
+// avoids expanding the already-deep guard/resolve dependency graph a second
+// time while still validating the component contract inferred from the SFC.
+type _CheckSlowPageDI = RouteCheckedDI<
+  ComponentDepsOf<(typeof import('./slow-page'))['default']>,
   never,
   Router,
-  typeof slowPageRoutes
+  'component: slow-page'
 >;
 type _CanRunSlowPage = CanRun<_CheckSlowPageDI>;

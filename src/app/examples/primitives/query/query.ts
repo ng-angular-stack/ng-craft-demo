@@ -1,102 +1,84 @@
-import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import {
+  button,
+  craftComponent,
+  div,
+  h,
+  p,
+  type Input,
+} from '@craft-ng/component';
 import {
   componentMonitoring,
+  Console,
   craftMethod,
-  CraftRouterToYield,
-  craftUse,
+  CraftRouter,
   insertLocalStoragePersister,
   provideHostName,
   query,
-  type ExtractDeps,
-  type GetDeps,
-  type GetPublicComponentProperties,
 } from '@craft-ng/core';
-import {
-  StatusComponent,
-  type GenDeps_StatusComponent,
-} from '../../../ui/status.component';
-import { ApiServiceToYield } from './api.service';
+import { StatusComponent } from '../../../ui/status.component';
+import { ApiService } from './api.service';
 
-@Component({
-  selector: 'app-query',
-  imports: [CommonModule, StatusComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  styleUrls: ['query.css'],
-  template: `
-    <div>
-      User
-      <app-status [status]="userQuery.status()" />
-
-      :
-      @if (userQuery.hasValue()) {
-        <pre>{{ userQuery.value() | json }}</pre>
-      }
-    </div>
-
-    <div>
-      <p>
-        > Reload the page to see the query result to be retrieved from the cache
-      </p>
-    </div>
-
-    <button (click)="previousPage()">Previous user</button>
-    <button (click)="nextPage()">Next user</button>
-  `,
-  providers: [provideHostName('component:GlobalQuery')],
-})
-export default class GlobalQuery {
-  private readonly _monitoring = componentMonitoring();
-  public readonly userId = input<string>();
-
-  protected readonly userQuery = craftUse(
-    query(
+const GlobalQuery = craftComponent(
+  'GlobalQuery',
+  {
+    providers: [provideHostName('component:GlobalQuery')],
+  },
+  function* (userId: Input<string | undefined>) {
+    componentMonitoring();
+    yield* Console.info('[query-demo] route input received', {
+      userId: userId(),
+    });
+    const { userQuery } = yield* query(
+      'userQuery',
       {
-        params: this.userId,
-        loader: function* ({ params: userId }) {
-          return yield* ApiServiceToYield.getItemById(userId);
+        params: userId,
+        loader: function* ({ params }) {
+          yield* Console.info('[query-demo] loader started', {
+            inputUserId: userId(),
+            params,
+          });
+          const userPromise = yield* ApiService.getItemById(params);
+          yield* Console.info('[query-demo] loader request created', {
+            params,
+          });
+          return userPromise;
         },
       },
       insertLocalStoragePersister({
         storeName: 'demo-app',
         key: 'user-query',
       }),
-    ),
-  );
-
-  protected nextPage = craftMethod('nextPage', this, function* () {
-    return yield* CraftRouterToYield.navigate({
-      to: 'query/:userId',
-      params: {
-        userId: String(parseInt(this.userId() ?? '0', 10) + 1),
-      },
+    );
+    const router = yield* CraftRouter(undefined, ({ navigate }) => ({
+      navigate,
+    }));
+    const { navigate } = craftMethod('navigate', function* (offset: number) {
+      const currentUserId = userId();
+      const targetUserId = String(Number(currentUserId ?? '0') + offset);
+      yield* Console.info('[query-demo] navigation requested', {
+        currentUserId,
+        offset,
+        targetUserId,
+      });
+      void router.navigate({
+        to: 'query/:userId',
+        params: { userId: targetUserId },
+      });
     });
-  });
+    return { userQuery, navigate };
+  },
+  ({ userQuery, navigate }) => [
+    div([
+      'User ',
+      StatusComponent({ status: () => userQuery.status() }),
+      userQuery.hasValue()
+        ? h('pre', JSON.stringify(userQuery.value(), null, 2))
+        : [],
+    ]),
+    p('Reload the page to retrieve the query result from the cache.'),
+    button({ click: () => void navigate(-1) }, 'Previous user'),
+    button({ click: () => void navigate(1) }, 'Next user'),
+  ],
+);
 
-  protected previousPage = craftMethod('previousPage', this, function* () {
-    return yield* CraftRouterToYield.navigate({
-      to: 'query/:userId',
-      params: {
-        userId: String(parseInt(this.userId() ?? '10', 10) - 1),
-      },
-    });
-  });
-}
-
-export type GenDeps_GlobalQuery = GetDeps<{
-  deps: {
-    CommonModule: CommonModule;
-    GenDeps_StatusComponent: GenDeps_StatusComponent;
-  };
-  propertiesDeps: {
-    _monitoring: ExtractDeps<GlobalQuery['_monitoring']>;
-    userId: ExtractDeps<GlobalQuery['userId']>;
-    userQuery: ExtractDeps<GlobalQuery['userQuery']>;
-    nextPage: ExtractDeps<GlobalQuery['nextPage']>;
-    previousPage: ExtractDeps<GlobalQuery['previousPage']>;
-  };
-  provided: {
-    HostName: ReturnType<typeof provideHostName>;
-  };
-  publicProperties: GetPublicComponentProperties<GlobalQuery>;
-}>;
+export default GlobalQuery;

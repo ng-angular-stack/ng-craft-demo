@@ -1,6 +1,14 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
 import {
-  craftUse,
+  button,
+  craftComponent,
+  div,
+  each,
+  h2,
+  input,
+  p,
+  span,
+} from '@craft-ng/component';
+import {
   componentMonitoring,
   craftMethod,
   craftService,
@@ -9,9 +17,6 @@ import {
   mutation,
   provideHostName,
   query,
-  type ExtractDeps,
-  type GetDeps,
-  type GetPublicComponentProperties,
 } from '@craft-ng/core';
 
 // -- Types --
@@ -37,7 +42,7 @@ function delay<T>(value: T, ms = 500): Promise<T> {
 
 // -- ApiService: global craftService with CRUD endpoints --
 
-const { ApiServiceToYield } = craftService(
+const { ApiService } = craftService(
   { name: 'ApiService', scope: 'global' },
   () => ({
     getTodos: () => delay([...TODOS]),
@@ -68,59 +73,52 @@ const { ApiServiceToYield } = craftService(
 
 // -- Playground service: composes query + mutation --
 
-const { injectPlayground, PlaygroundToYield } = craftService(
+const { Playground } = craftService(
   { name: 'Playground', scope: 'function' },
-  () => {
-    const addTodo = craftUse(
-      mutation({
-        method: (title: string) => title,
-        loader: function* ({ params: title }) {
-          return yield* ApiServiceToYield.addTodo(title);
-        },
-      }),
-    );
+  function* () {
+    const { addTodo } = yield* mutation('addTodo', {
+      method: (title: string) => title,
+      loader: function* ({ params: title }) {
+        return yield* ApiService.addTodo(title);
+      },
+    });
 
-    const toggleTodo = craftUse(
-      mutation({
-        method: (id: number) => id,
-        loader: function* ({ params: id }) {
-          return yield* ApiServiceToYield.toggleTodo(id);
-        },
-      }),
-    );
+    const { toggleTodo } = yield* mutation('toggleTodo', {
+      method: (id: number) => id,
+      loader: function* ({ params: id }) {
+        return yield* ApiService.toggleTodo(id);
+      },
+    });
 
-    const deleteTodo = craftUse(
-      mutation({
-        method: (id: number) => id,
-        loader: function* ({ params: id }) {
-          return yield* ApiServiceToYield.deleteTodo(id);
-        },
-      }),
-    );
+    const { deleteTodo } = yield* mutation('deleteTodo', {
+      method: (id: number) => id,
+      loader: function* ({ params: id }) {
+        return yield* ApiService.deleteTodo(id);
+      },
+    });
 
-    const todos = craftUse(
-      query(
-        {
-          params: () => 'all' as const,
-          loader: function* () {
-            const getTodos = yield* ApiServiceToYield.getTodos();
-            return getTodos();
-          },
+    const { todos } = yield* query(
+      'todos',
+      {
+        params: () => 'all' as const,
+        loader: function* () {
+          const getTodos = yield* ApiService.getTodos();
+          return getTodos();
         },
-        (context) =>
-          craftPipe(
-            context,
-            insertReactOnMutation(addTodo, {
-              reload: { onMutationResolved: true },
-            }),
-            insertReactOnMutation(toggleTodo, {
-              reload: { onMutationResolved: true },
-            }),
-            insertReactOnMutation(deleteTodo, {
-              reload: { onMutationResolved: true },
-            }),
-          ),
-      ),
+      },
+      (context) =>
+        craftPipe(
+          context,
+          insertReactOnMutation(addTodo, {
+            reload: { onMutationResolved: true },
+          }),
+          insertReactOnMutation(toggleTodo, {
+            reload: { onMutationResolved: true },
+          }),
+          insertReactOnMutation(deleteTodo, {
+            reload: { onMutationResolved: true },
+          }),
+        ),
     );
 
     return { todos, addTodo, toggleTodo, deleteTodo };
@@ -129,55 +127,11 @@ const { injectPlayground, PlaygroundToYield } = craftService(
 
 // -- Component --
 
-@Component({
-  selector: 'app-playground',
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="playground">
-      <h2>Playground</h2>
-      <p class="subtitle">Sandbox for testing @craft-ng — ready to share on StackBlitz</p>
-
-      <div class="add-form">
-        <input
-          #input
-          type="text"
-          placeholder="New todo title..."
-          (keydown.enter)="add(input)"
-        />
-        <button (click)="add(input)" [disabled]="pg.addTodo.isLoading()">
-          {{ pg.addTodo.isLoading() ? 'Adding...' : 'Add' }}
-        </button>
-      </div>
-
-      <div class="list">
-        @if (pg.todos.isLoading()) {
-          <p class="reloading">Refreshing...</p>
-        }
-        @switch (pg.todos.status()) {
-          @case ('loading') {
-            <p class="loading">Loading todos...</p>
-          }
-          @case ('exception') {
-            <p class="error">Failed to load todos.</p>
-          }
-          @default {
-            @for (todo of pg.todos.safeValue(); track todo.id) {
-              <div class="todo-item" [class.completed]="todo.completed">
-                <button class="toggle" (click)="pg.toggleTodo.mutate(todo.id)">
-                  {{ todo.completed ? '✅' : '⬜' }}
-                </button>
-                <span class="title">{{ todo.title }}</span>
-                <button class="delete" (click)="pg.deleteTodo.mutate(todo.id)">🗑️</button>
-              </div>
-            } @empty {
-              <p class="empty">No todos yet.</p>
-            }
-          }
-        }
-      </div>
-    </div>
-  `,
-  styles: `
+const PlaygroundComponent = craftComponent(
+  'PlaygroundComponent',
+  {
+    providers: [provideHostName('component:PlaygroundComponent')],
+    styles: `
     .playground {
       display: flex;
       flex-direction: column;
@@ -257,34 +211,62 @@ const { injectPlayground, PlaygroundToYield } = craftService(
       color: #9ca3af;
       font-style: italic;
     }
-  `,
-  providers: [provideHostName('component:PlaygroundComponent')],
-})
-export default class PlaygroundComponent {
-  private readonly _monitoring = componentMonitoring();
-  protected readonly pg = injectPlayground();
+    `,
+  },
+  function* () {
+    componentMonitoring();
+    const pg = yield* Playground();
+    const { add } = craftMethod('add', function* (input: HTMLInputElement) {
+      const title = input.value.trim();
+      if (!title) return;
+      (yield* Playground()).addTodo.mutate(title);
+      input.value = '';
+      return {};
+    });
+    return { pg, add };
+  },
+  ({ pg, add }) => {
+    let field: HTMLInputElement | undefined;
+    return div({ class: 'playground' }, [
+      h2('Playground'),
+      p('Sandbox for testing @craft-ng — ready to share on StackBlitz'),
+      div({ class: 'add-form' }, [
+        input({
+          type: 'text',
+          placeholder: 'New todo title…',
+          input: (event) => {
+            field = event.target as HTMLInputElement;
+          },
+          keydown: (event) => {
+            if (event.key === 'Enter' && field) void add(field);
+          },
+        }),
+        button(
+          {
+            disabled: pg.addTodo.isLoading(),
+            click: () => field && void add(field),
+          },
+          pg.addTodo.isLoading() ? 'Adding…' : 'Add',
+        ),
+      ]),
+      div(
+        { class: 'list' },
+        each(
+          () => pg.todos.safeValue() ?? [],
+          { track: (todo) => todo.id, empty: () => p('No todos yet.') },
+          (todo) =>
+            div({ class: { 'todo-item': true, completed: todo.completed } }, [
+              button(
+                { click: () => pg.toggleTodo.mutate(todo.id) },
+                todo.completed ? '✅' : '⬜',
+              ),
+              span({ class: 'title' }, todo.title),
+              button({ click: () => pg.deleteTodo.mutate(todo.id) }, '🗑️'),
+            ]),
+        ),
+      ),
+    ]);
+  },
+);
 
-  add = craftMethod('add', function* (input: HTMLInputElement) {
-    const title = input.value.trim();
-    if (!title) return;
-    const pg = yield* PlaygroundToYield();
-    pg.addTodo.mutate(title);
-    input.value = '';
-    return {};
-  });
-}
-
-export type GenDeps_PlaygroundComponent = GetDeps<{
-  deps: {};
-  propertiesDeps: {
-    _monitoring: ExtractDeps<PlaygroundComponent['_monitoring']>;
-    pg: {
-      Playground: ExtractDeps<typeof injectPlayground>['Playground'];
-    };
-    add: ExtractDeps<PlaygroundComponent['add']>;
-  };
-  provided: {
-    HostName: ReturnType<typeof provideHostName>;
-  };
-  publicProperties: GetPublicComponentProperties<PlaygroundComponent>;
-}>;
+export default PlaygroundComponent;

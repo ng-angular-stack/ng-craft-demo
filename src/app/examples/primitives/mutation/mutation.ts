@@ -1,82 +1,44 @@
-import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import {
-  craftUse,
+  button,
+  craftComponent,
+  div,
+  h,
+  input,
+  p,
+  type Input,
+} from '@craft-ng/component';
+import {
+  CraftRouter,
   componentMonitoring,
-  injectCraftRouter,
-  insertLocalStoragePersister,
   craftPipe,
+  insertLocalStoragePersister,
   insertReactOnMutation,
   mutation,
   provideHostName,
   query,
-  type DerivedService,
-  type ExtractDeps,
-  type GetDeps,
-  type GetInjectedServiceDependencies,
-  type GetPublicComponentProperties,
-  type GetServiceOutput,
 } from '@craft-ng/core';
-import {
-  StatusComponent,
-  type GenDeps_StatusComponent,
-} from '../../../ui/status.component';
-import { injectApiService, User } from './api.service';
+import { StatusComponent } from '../../../ui/status.component';
+import { ApiService, type User } from './api.service';
 
-@Component({
-  selector: 'app-mutation',
-  imports: [CommonModule, StatusComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  styleUrls: ['mutation.css'],
-  template: `
-    <div>
-      User
-      <app-status [status]="userQuery.status()" />
-
-      :
-      @if (userQuery.hasValue()) {
-        <pre>{{ userQuery.value() | json }}</pre>
-      }
-    </div>
-
-    <div>
-      <p>
-        > Reload the page to see the query result to be retrieved from the cache
-      </p>
-      <p>> Update the user name to see optimistic updates in action</p>
-    </div>
-
-    <input #nameInput type="text" placeholder="New name" />
-    <button
-      (click)="updateUserNameFn(nameInput.value)"
-      [disabled]="updateUserName.isLoading()"
-    >
-      Update name (<app-status [status]="updateUserName.status()" />)
-    </button>
-  `,
-  providers: [provideHostName('component:MutationDemoComponent')],
-})
-export default class MutationDemoComponent {
-  private readonly _monitoring = componentMonitoring();
-  public readonly userId = input<string>();
-  private readonly apiService = injectApiService();
-
-  protected readonly updateUserName = craftUse(
-    mutation({
+const MutationDemoComponent = craftComponent(
+  'MutationDemoComponent',
+  { providers: [provideHostName('component:MutationDemoComponent')] },
+  function* (userId: Input<string | undefined>) {
+    componentMonitoring();
+    const api = yield* ApiService();
+    const { updateUserName } = yield* mutation('updateUserName', {
       method: (payload: { userName: string; user: User }) => ({
         ...payload.user,
         name: payload.userName,
       }),
-      loader: ({ params: user }) => this.apiService.updateItem(user),
-    }),
-  );
-
-  protected readonly userQuery = craftUse(
-    query(
+      loader: ({ params: user }) => api.updateItem(user),
+    });
+    const { userQuery } = yield* query(
+      'userQuery',
       {
-        params: this.userId,
-        loader: ({ params: userId }) => this.apiService.getItemById(userId),
-        preservePreviousValue: () => true, // keep the previous user display while the new one fetching
+        params: userId,
+        loader: ({ params }) => api.getItemById(params),
+        preservePreviousValue: () => true,
       },
       (context) =>
         craftPipe(
@@ -85,88 +47,64 @@ export default class MutationDemoComponent {
             storeName: 'demo-app',
             key: 'mutation',
           }),
-          insertReactOnMutation(this.updateUserName, {
+          insertReactOnMutation(updateUserName, {
             optimisticPatch: {
               name: ({ mutationParams: { name } }) => name,
             },
           }),
         ),
-    ),
-  );
-
-  private readonly router = injectCraftRouter(undefined, ({ navigate }) => ({
-    navigate,
-  }));
-
-  protected updateUserNameFn(newName: string) {
-    const user = this.userQuery.hasValue() ? this.userQuery.value() : null;
-    if (!user) {
-      return;
-    }
-    this.updateUserName.mutate({ userName: newName, user });
-  }
-
-  protected nextPage() {
-    void this.router.navigate({
-      to: 'mutation/:userId',
-      params: {
-        userId: String(parseInt(this.userId() ?? '0', 10) + 1),
-      },
-    });
-  }
-
-  protected previousPage() {
-    void this.router.navigate({
-      to: 'mutation/:userId',
-      params: {
-        userId: String(parseInt(this.userId() ?? '10', 10) - 1),
-      },
-    });
-  }
-}
-
-export type GenDeps_GlobalQuery = GetDeps<{
-  deps: {
-    CommonModule: CommonModule;
-    GenDeps_StatusComponent: GenDeps_StatusComponent;
-    ApiService: GetInjectedServiceDependencies<typeof injectApiService>;
-    CraftRouter: DerivedService<
-      GetInjectedServiceDependencies<typeof injectCraftRouter>,
-      {
-        derivedPropertiesUsed: {
-          navigate: GetServiceOutput<typeof injectCraftRouter>['navigate'];
-        };
-        derivedPropertiesExposed: {
-          navigate: GetServiceOutput<typeof injectCraftRouter>['navigate'];
-        };
+    );
+    const router = yield* CraftRouter(undefined, ({ navigate }) => ({
+      navigate,
+    }));
+    const navigate = (offset: number) =>
+      void router.navigate({
+        to: 'mutation/:userId',
+        params: { userId: String(Number(userId() ?? '0') + offset) },
+      });
+    const update = (name: string) => {
+      const user = userQuery.safeValue();
+      if (user) {
+        updateUserName.mutate({
+          userName: name,
+          user,
+        });
       }
-    >;
-  };
-  provided: {};
-  publicProperties: GetPublicComponentProperties<MutationDemoComponent>;
-}>;
-export type GenDeps_MutationDemoComponent = GetDeps<{
-  deps: {
-    CommonModule: CommonModule;
-    GenDeps_StatusComponent: GenDeps_StatusComponent;
-  };
-  propertiesDeps: {
-    _monitoring: ExtractDeps<MutationDemoComponent['_monitoring']>;
-    userId: ExtractDeps<MutationDemoComponent['userId']>;
-    apiService: {
-      ApiService: ExtractDeps<typeof injectApiService>['ApiService'];
     };
-    updateUserName: ExtractDeps<MutationDemoComponent['updateUserName']>;
-    userQuery: ExtractDeps<MutationDemoComponent['userQuery']>;
-    router: {
-      CraftRouter: ReturnType<typeof injectCraftRouter>;
-    };
-  };
-  provided: {
-    HostName: ReturnType<typeof provideHostName>;
-  };
-  publicProperties: GetPublicComponentProperties<MutationDemoComponent>;
-  missingProvider: {
-    CraftRouter: ReturnType<typeof injectCraftRouter>;
-  };
-}>;
+    return { userQuery, updateUserName, update, navigate };
+  },
+  ({ userQuery, updateUserName, update, navigate }) => {
+    let name = '';
+    return [
+      div([
+        'User ',
+        StatusComponent({ status: () => userQuery.status() }),
+        userQuery.hasValue()
+          ? h('pre', JSON.stringify(userQuery.value(), null, 2))
+          : [],
+      ]),
+      p('Reload to see the cached result; update the name optimistically.'),
+      input({
+        type: 'text',
+        placeholder: 'New name',
+        input: (event) => {
+          name = (event.target as HTMLInputElement).value;
+        },
+      }),
+      button(
+        {
+          disabled: updateUserName.isLoading(),
+          click: () => update(name),
+        },
+        [
+          'Update name ',
+          StatusComponent({ status: () => updateUserName.status() }),
+        ],
+      ),
+      button({ click: () => navigate(-1) }, 'Previous user'),
+      button({ click: () => navigate(1) }, 'Next user'),
+    ];
+  },
+);
+
+export default MutationDemoComponent;

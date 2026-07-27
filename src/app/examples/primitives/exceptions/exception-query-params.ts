@@ -1,111 +1,45 @@
-import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
 import {
-  craftUse,
+  ActivatedRoute as ActivatedRouteToken,
+  Router as RouterToken,
+} from '@angular/router';
+import {
+  button,
+  craftComponent,
+  div,
+  h,
+  p,
+  section,
+  strong,
+} from '@craft-ng/component';
+import {
   componentMonitoring,
   craftException,
   provideHostName,
   queryParams,
   toCraftService,
-  type DerivedService,
-  type ExtractDeps,
-  type GetDeps,
-  type GetPublicComponentProperties,
-  type GetServiceOutput,
 } from '@craft-ng/core';
 
-// todo migrate to CraftRouter once the relative navigation is supported in the router.navigate method of CraftRouter
-
-const { injectActivatedRoute } = toCraftService({
+const { ActivatedRoute } = toCraftService({
   name: 'ActivatedRoute',
   scope: 'global',
-  token: ActivatedRoute,
+  token: ActivatedRouteToken,
 });
-
-const { injectRouter } = toCraftService({
+const { Router } = toCraftService({
   name: 'Router',
   scope: 'global',
-  token: Router,
+  token: RouterToken,
 });
 
-@Component({
-  selector: 'app-exception-query-params',
-  imports: [CommonModule],
-  styles: [
-    `
-      .query-params-demo {
-        margin-top: 24px;
-        padding: 16px;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        background: #f8fafc;
-      }
-
-      .actions {
-        display: flex;
-        gap: 8px;
-        margin: 12px 0;
-      }
-
-      .btn {
-        padding: 8px 14px;
-        border: 1px solid #cbd5e0;
-        border-radius: 6px;
-        background: white;
-        color: #334155;
-        cursor: pointer;
-      }
-
-      .row {
-        margin: 6px 0;
-        font-size: 14px;
-      }
-
-      .error {
-        color: #b91c1c;
-      }
-    `,
-  ],
-  template: `
-    <section class="query-params-demo">
-      <h4>QueryParams parse exception</h4>
-
-      <div class="actions">
-        <button type="button" class="btn" (click)="navigateSuccess()">
-          Navigate success
-        </button>
-        <button type="button" class="btn" (click)="navigateException()">
-          Navigate exception
-        </button>
-      </div>
-
-      <p class="row">
-        <strong>Parsed value:</strong> {{ modeQueryParams.mode() }}
-      </p>
-
-      @if (modeQueryParams.exceptions().parse.mode; as parseException) {
-        <p class="row error">
-          <strong>Exception:</strong>
-          {{ parseException.code }} (received:
-          {{ parseException.payload.received }})
-        </p>
-      } @else {
-        <p class="row"><strong>Exception:</strong> none</p>
-      }
-    </section>
-  `,
-  providers: [provideHostName('component:ExceptionQueryParamsComponent')],
-})
-export default class ExceptionQueryParamsComponent {
-  private readonly _monitoring = componentMonitoring();
-  private readonly router = injectRouter(undefined, ({ navigate }) => ({
-    navigate,
-  }));
-  private readonly activatedRoute = injectActivatedRoute();
-
-  protected readonly modeQueryParams = craftUse(
-    queryParams({
+const ExceptionQueryParamsComponent = craftComponent(
+  'ExceptionQueryParamsComponent',
+  { providers: [provideHostName('component:ExceptionQueryParamsComponent')] },
+  function* () {
+    componentMonitoring();
+    const router = yield* Router(undefined, ({ navigate }) => ({
+      navigate,
+    }));
+    const activatedRoute = yield* ActivatedRoute();
+    const { modeQueryParams } = yield* queryParams('modeQueryParams', {
       state: {
         mode: {
           fallbackValue: 'fallbackValue' as const,
@@ -114,59 +48,37 @@ export default class ExceptionQueryParamsComponent {
               ? ('success' as const)
               : craftException(
                   { code: 'InvalidModeFromUrl' },
-                  { received: value as string },
+                  { received: value },
                 ),
-          serialize: (value: unknown) => String(value),
+          serialize: String,
         },
       },
-    }),
-  );
-
-  protected navigateSuccess(): void {
-    void this.router.navigate([], {
-      relativeTo: this.activatedRoute,
-      queryParams: { mode: 'success' },
-      queryParamsHandling: 'merge',
     });
-  }
+    const navigate = (mode: string) =>
+      void router.navigate([], {
+        relativeTo: activatedRoute,
+        queryParams: { mode },
+        queryParamsHandling: 'merge',
+      });
+    return { modeQueryParams, navigate };
+  },
+  ({ modeQueryParams, navigate }) => {
+    const exception = modeQueryParams.exceptions().parse.mode;
+    return section([
+      h('h4', 'QueryParams parse exception'),
+      div([
+        button({ click: () => navigate('success') }, 'Navigate success'),
+        button({ click: () => navigate('exception') }, 'Navigate exception'),
+      ]),
+      p([strong('Parsed value: '), modeQueryParams.mode()]),
+      exception
+        ? p([
+            strong('Exception: '),
+            `${exception.code} (received: ${exception.payload.received})`,
+          ])
+        : p([strong('Exception: '), 'none']),
+    ]);
+  },
+);
 
-  protected navigateException(): void {
-    void this.router.navigate([], {
-      relativeTo: this.activatedRoute,
-      queryParams: { mode: 'exception' },
-      queryParamsHandling: 'merge',
-    });
-  }
-}
-
-export type GenDeps_ExceptionQueryParamsComponent = GetDeps<{
-  deps: {
-    CommonModule: CommonModule;
-  };
-  propertiesDeps: {
-    _monitoring: ExtractDeps<ExceptionQueryParamsComponent['_monitoring']>;
-    router: {
-      Router: DerivedService<
-        ExtractDeps<typeof injectRouter>['Router'],
-        {
-          derivedPropertiesUsed: {
-            navigate: GetServiceOutput<typeof injectRouter>['navigate'];
-          };
-          derivedPropertiesExposed: {
-            navigate: GetServiceOutput<typeof injectRouter>['navigate'];
-          };
-        }
-      >;
-    };
-    activatedRoute: {
-      ActivatedRoute: ExtractDeps<
-        typeof injectActivatedRoute
-      >['ActivatedRoute'];
-    };
-    modeQueryParams: ExtractDeps<ExceptionQueryParamsComponent['modeQueryParams']>;
-  };
-  provided: {
-    HostName: ReturnType<typeof provideHostName>;
-  };
-  publicProperties: GetPublicComponentProperties<ExceptionQueryParamsComponent>;
-}>;
+export default ExceptionQueryParamsComponent;

@@ -1,45 +1,26 @@
-import { Component, input } from '@angular/core';
-import {
-  craftUse,
-  componentMonitoring,
-  provideHostName,
-  state,
-  type ExtractDeps,
-  type GetDeps,
-  type GetPublicComponentProperties,
-} from '@craft-ng/core';
+import { button, craftComponent, h2, p, type Input } from '@craft-ng/component';
+import { provideHostName, state } from '@craft-ng/core';
 
-@Component({
-  selector: 'app-send-context-counter',
-  template: `
-    <h2>Counter</h2>
-    <p>Value: {{ counter() }}</p>
-    <button (click)="counter.increment()">Increment</button>
-    <button (click)="counter.decrement()">Decrement</button>
-  `,
-  providers: [provideHostName('component:SendContextCounterComponent')],
-})
-export class SendContextCounterComponent {
-  private readonly _monitoring = componentMonitoring();
-  readonly initialValue = input.required<number>();
+export const SendContextCounterComponent = craftComponent(
+  'SendContextCounterComponent',
+  { providers: [provideHostName('component:SendContextCounterComponent')] },
+  function* (initialValue: Input<number>) {
+    const { counter } = yield* state(
+      'counter',
+      initialValue(),
+      ({ update }) => ({
+        increment: () => update((value) => value + 1),
+        decrement: () => update((value) => value - 1),
+      }),
+    );
+    return { initialValue, counter };
+  },
+  ({ counter }) => [
+    h2('Counter'),
+    p(`Value: ${counter()}`),
+    button({ click: counter.increment }, 'Increment'),
+    button({ click: counter.decrement }, 'Decrement'),
+  ],
+);
 
-  protected counter = craftUse(
-    state(this.initialValue, ({ update }) => ({
-      increment: () => update((value) => value + 1),
-      decrement: () => update((value) => value - 1),
-    })),
-  );
-}
-
-export type GenDeps_SendContextCounterComponent = GetDeps<{
-  deps: {};
-  propertiesDeps: {
-    _monitoring: ExtractDeps<SendContextCounterComponent['_monitoring']>;
-    initialValue: ExtractDeps<SendContextCounterComponent['initialValue']>;
-    counter: ExtractDeps<SendContextCounterComponent['counter']>;
-  };
-  provided: {
-    HostName: ReturnType<typeof provideHostName>;
-  };
-  publicProperties: GetPublicComponentProperties<SendContextCounterComponent>;
-}>;
+export type SendContextCounterComponent = typeof SendContextCounterComponent;

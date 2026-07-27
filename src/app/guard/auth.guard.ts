@@ -1,26 +1,18 @@
-import {
-  craftGen,
-  craftException,
-  craftService,
-  craftUse,
-  query,
-} from '@craft-ng/core';
+import { craftGen, craftException, craftService, query } from '@craft-ng/core';
 
 type User = {
   name: string;
 };
 
-const { AuthToYield } = craftService({ name: 'Auth', scope: 'global' }, () => {
-  return craftUse(
-    query({
-      params: () => true,
-      loader: async () => ({}) as User,
-    }),
-  );
+const { Auth } = craftService({ name: 'Auth', scope: 'global' }, function* () {
+  return (yield* query('auth', {
+    params: () => true,
+    loader: async () => ({}) as User,
+  })).auth;
 });
 
 export const authGuard = craftGen(function* () {
-  const user = yield* AuthToYield();
+  const user = yield* Auth();
   const userSafeValue = user.safeValue();
 
   if (!userSafeValue) return craftException({ code: 'NOT_AUTHENTICATED' });

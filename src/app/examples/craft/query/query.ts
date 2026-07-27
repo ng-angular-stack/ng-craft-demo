@@ -1,127 +1,74 @@
-import { JsonPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import {
-  craftUse,
-  Console,
-  CraftRouterToYield,
+  button,
+  craftComponent,
+  div,
+  h,
+  p,
+  type Input,
+} from '@craft-ng/component';
+import {
   componentMonitoring,
+  Console,
   craftMethod,
+  CraftRouter,
   craftService,
   insertLocalStoragePersister,
   provideHostName,
   query,
-  toValue,
-  type ExtractDeps,
-  type GetDeps,
-  type GetPublicComponentProperties,
-  type MaybeSignal,
 } from '@craft-ng/core';
-import {
-  StatusComponent,
-  type GenDeps_StatusComponent,
-} from '../../../ui/status.component';
-import { ApiServiceToYield } from './api.service';
+import { StatusComponent } from '../../../ui/status.component';
+import { ApiService } from './api.service';
 
-const { injectUserQuery } = craftService(
+const { UserQuery } = craftService(
   { name: 'UserQuery', scope: 'global' },
-  (inputs: { userId: MaybeSignal<string | undefined> }) => {
-    return craftUse(
-      query(
-        {
-          params: () => toValue(inputs.userId),
-          loader: function* ({ params: userId }) {
-            yield* Console.log('Loading user with id:', userId);
-            return yield* ApiServiceToYield.getItemById(userId);
-          },
+  function* (inputs: { userId: () => string | undefined }) {
+    return (yield* query(
+      'userQuery',
+      {
+        params: inputs.userId,
+        loader: function* ({ params }) {
+          yield* Console.log('Loading user with id:', params);
+          return yield* ApiService.getItemById(params);
         },
-        insertLocalStoragePersister({
-          storeName: 'demo-app-craft',
-          key: 'user-query',
-        }),
-      ),
-    );
+      },
+      insertLocalStoragePersister({
+        storeName: 'demo-app-craft',
+        key: 'user-query',
+      }),
+    )).userQuery;
   },
 );
 
-@Component({
-  selector: 'app-query',
-  imports: [JsonPipe, StatusComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  styleUrls: ['query.css'],
-  template: `
-    <div>
-      User
-      <app-status [status]="user.status()" />
-
-      :
-      @if (user.hasValue()) {
-        <pre>{{ user.value() | json }}</pre>
-      }
-    </div>
-
-    <div>
-      <p>
-        > Reload the page to see the query result to be retrieved from the cache
-      </p>
-    </div>
-
-    <button (click)="previousPage()">Previous user</button>
-    <button (click)="nextPage()">Next user</button>
-  `,
-  providers: [provideHostName('component:GlobalQuery')],
-})
-export default class GlobalQuery {
-  private readonly _monitoring = componentMonitoring();
-  public readonly userId = input<string>();
-
-  protected readonly user = injectUserQuery({
-    userId: this.userId,
-  });
-
-  protected nextPage = craftMethod('nextPage', this, function* () {
-    yield* Console.log('Navigating to next user');
-    const { navigate } = yield* CraftRouterToYield(
-      undefined,
-      ({ navigate }) => ({ navigate }),
-    );
-    void navigate({
-      to: 'craft/query/:userId',
-      params: {
-        userId: String(parseInt(this.userId() ?? '0', 10) + 1),
-      },
+const CraftGlobalQuery = craftComponent(
+  'CraftGlobalQuery',
+  { providers: [provideHostName('component:CraftGlobalQuery')] },
+  function* (userId: Input<string | undefined>) {
+    componentMonitoring();
+    const user = yield* UserQuery({ userId: () => userId() });
+    const router = yield* CraftRouter(undefined, ({ navigate }) => ({
+      navigate,
+    }));
+    const { navigate } = craftMethod('navigate', function* (offset: number) {
+      // todo yield le router ici directement
+      void router.navigate({
+        to: 'craft/query/:userId',
+        params: {
+          userId: String(Number(userId() ?? '0') + offset),
+        },
+      });
     });
-  });
+    return { user, navigate };
+  },
+  ({ user, navigate }) => [
+    div([
+      'User ',
+      StatusComponent({ status: () => user.status() }),
+      user.hasValue() ? h('pre', JSON.stringify(user.value(), null, 2)) : [],
+    ]),
+    p('Reload the page to retrieve the query result from the cache.'),
+    button({ click: () => void navigate(-1) }, 'Previous user'),
+    button({ click: () => void navigate(1) }, 'Next user'),
+  ],
+);
 
-  protected previousPage = craftMethod('previousPage', this, function* () {
-    const { navigate } = yield* CraftRouterToYield(
-      undefined,
-      ({ navigate }) => ({ navigate }),
-    );
-    void navigate({
-      to: 'craft/query/:userId',
-      params: {
-        userId: String(parseInt(this.userId() ?? '10', 10) - 1),
-      },
-    });
-  });
-}
-
-export type GenDeps_GlobalQuery = GetDeps<{
-  deps: {
-    JsonPipe: JsonPipe;
-    GenDeps_StatusComponent: GenDeps_StatusComponent;
-  };
-  propertiesDeps: {
-    _monitoring: ExtractDeps<GlobalQuery['_monitoring']>;
-    userId: ExtractDeps<GlobalQuery['userId']>;
-    user: {
-      UserQuery: ExtractDeps<typeof injectUserQuery>['UserQuery'];
-    };
-    nextPage: ExtractDeps<GlobalQuery['nextPage']>;
-    previousPage: ExtractDeps<GlobalQuery['previousPage']>;
-  };
-  provided: {
-    HostName: ReturnType<typeof provideHostName>;
-  };
-  publicProperties: GetPublicComponentProperties<GlobalQuery>;
-}>;
+export default CraftGlobalQuery;

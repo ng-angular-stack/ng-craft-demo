@@ -1,8 +1,14 @@
-import { JsonPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import {
-  craftUse,
-  CraftRouterToYield,
+  button,
+  craftComponent,
+  div,
+  h,
+  input,
+  p,
+  type Input,
+} from '@craft-ng/component';
+import {
+  CraftRouter,
   componentMonitoring,
   craftMethod,
   craftService,
@@ -12,165 +18,123 @@ import {
   mutation,
   provideHostName,
   query,
-  toValue,
-  type ExtractDeps,
-  type GetDeps,
-  type GetPublicComponentProperties,
-  type MaybeSignal,
 } from '@craft-ng/core';
-import {
-  StatusComponent,
-  type GenDeps_StatusComponent,
-} from '../../../ui/status.component';
-import { ApiServiceToYield, type User } from './api.service';
+import { StatusComponent } from '../../../ui/status.component';
+import { ApiService, type User } from './api.service';
 
-const { injectUserMutation, provideUserMutation, UserMutationToYield } =
-  craftService(
-    { name: 'UserMutation', scope: 'toProvide' },
-    (inputs: { userId: MaybeSignal<string | undefined> }) => {
-      const updateUserName = craftUse(
-        mutation({
-          method: (payload: { userName: string; user: User }) => ({
-            ...payload.user,
-            name: payload.userName,
+const { provideUserMutation, UserMutation } = craftService(
+  { name: 'UserMutation', scope: 'toProvide' },
+  function* (inputs: { userId: () => string | undefined }) {
+    const { updateUserName } = yield* mutation('updateUserName', {
+      method: (payload: { userName: string; user: User }) => ({
+        ...payload.user,
+        name: payload.userName,
+      }),
+      loader: function* ({ params: user }) {
+        return yield* ApiService.updateItem(user);
+      },
+    });
+
+    const { user } = yield* query(
+      'user',
+      {
+        params: inputs.userId,
+        loader: function* ({ params: userId }) {
+          return yield* ApiService.getItemById(userId);
+        },
+        preservePreviousValue: () => true,
+      },
+      (context) =>
+        craftPipe(
+          context,
+          insertLocalStoragePersister({
+            storeName: 'demo-app-craft',
+            key: 'mutation',
           }),
-          loader: function* ({ params: user }) {
-            return yield* ApiServiceToYield.updateItem(user);
-          },
-        }),
-      );
-
-      const user = craftUse(
-        query(
-          {
-            params: () => toValue(inputs.userId),
-            loader: function* ({ params: userId }) {
-              return yield* ApiServiceToYield.getItemById(userId);
+          insertReactOnMutation(updateUserName, {
+            optimisticPatch: {
+              name: ({ mutationParams: { name } }) => name,
             },
-            preservePreviousValue: () => true,
-          },
-          (context) =>
-            craftPipe(
-              context,
-              insertLocalStoragePersister({
-                storeName: 'demo-app-craft',
-                key: 'mutation',
-              }),
-              insertReactOnMutation(updateUserName, {
-                optimisticPatch: {
-                  name: ({ mutationParams: { name } }) => name,
-                },
-              }),
-            ),
+          }),
         ),
-      );
+    );
 
-      return { user, updateUserName };
-    },
-  );
+    return { user, updateUserName };
+  },
+);
 
-@Component({
-  selector: 'app-mutation',
-  imports: [JsonPipe, StatusComponent],
-  providers: [
-    provideUserMutation(),
-    provideHostName('component:MutationCraft'),
-  ],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  styleUrls: ['mutation.css'],
-  template: `
-    <div>
-      User
-      <app-status [status]="store.user.status()" />
-
-      :
-      @if (store.user.hasValue()) {
-        <pre>{{ store.user.value() | json }}</pre>
-      }
-    </div>
-
-    <div>
-      <p>
-        > Reload the page to see the query result to be retrieved from the cache
-      </p>
-      <p>> Update the user name to see optimistic updates in action</p>
-    </div>
-
-    <input #nameInput type="text" placeholder="New name" />
-    <button
-      (click)="updateUserNameFn(nameInput.value)"
-      [disabled]="store.updateUserName.isLoading()"
-    >
-      Update name (<app-status [status]="store.updateUserName.status()" />)
-    </button>
-  `,
-})
-export default class MutationCraft {
-  private readonly _monitoring = componentMonitoring();
-  public readonly userId = input<string>();
-
-  protected readonly store = injectUserMutation({
-    userId: this.userId,
-  });
-
-  protected updateUserNameFn = craftMethod(
-    'updateUserNameFn',
-    function* (newName: string) {
-      const { user, updateUserName } = yield* UserMutationToYield(
-        undefined,
-        ({ user, updateUserName }) => ({ user, updateUserName }),
-      );
-      const userValue = user.hasValue() ? user.value() : null;
-      if (!userValue) {
-        return;
-      }
-      updateUserName.mutate({ userName: newName, user: userValue });
-    },
-  );
-
-  protected nextPage = craftMethod('nextPage', this, function* () {
-    const router = yield* CraftRouterToYield(undefined, ({ navigate }) => ({
+const MutationCraft = craftComponent(
+  'MutationCraft',
+  {
+    providers: [
+      provideUserMutation(),
+      provideHostName('component:MutationCraft'),
+    ],
+  },
+  function* (userId: Input<string | undefined>) {
+    componentMonitoring();
+    const store = yield* UserMutation({ userId: () => userId() });
+    const { updateUserNameFn } = craftMethod(
+      'updateUserNameFn',
+      function* (newName: string) {
+        const { user, updateUserName } = yield* UserMutation(
+          undefined,
+          ({ user, updateUserName }) => ({ user, updateUserName }),
+        );
+        const userValue = user.safeValue();
+        if (userValue) {
+          updateUserName.mutate({
+            userName: newName,
+            user: userValue,
+          });
+        }
+      },
+    );
+    const router = yield* CraftRouter(undefined, ({ navigate }) => ({
       navigate,
     }));
-    void router.navigate({
-      to: 'craft/mutation/:userId',
-      params: {
-        userId: String(parseInt(this.userId() ?? '0', 10) + 1),
-      },
+    const { navigate } = craftMethod('navigate', function* (offset: number) {
+      void router.navigate({
+        to: 'craft/mutation/:userId',
+        params: { userId: String(Number(userId() ?? '0') + offset) },
+      });
     });
-  });
+    return { store, updateUserNameFn, navigate };
+  },
+  ({ store, updateUserNameFn, navigate }) => {
+    let nameInput: HTMLInputElement | undefined;
+    return [
+      div([
+        'User ',
+        StatusComponent({ status: () => store.user.status() }),
+        store.user.hasValue()
+          ? h('pre', JSON.stringify(store.user.value(), null, 2))
+          : [],
+      ]),
+      p('Reload to see the cached result; update the name optimistically.'),
+      input({
+        type: 'text',
+        placeholder: 'New name',
+        input: (event) => {
+          nameInput = event.target as HTMLInputElement;
+        },
+      }),
+      button(
+        {
+          disabled: store.updateUserName.isLoading(),
+          click: () => void updateUserNameFn(nameInput?.value ?? ''),
+        },
+        [
+          'Update name ',
+          StatusComponent({
+            status: () => store.updateUserName.status(),
+          }),
+        ],
+      ),
+      button({ click: () => void navigate(-1) }, 'Previous user'),
+      button({ click: () => void navigate(1) }, 'Next user'),
+    ];
+  },
+);
 
-  protected previousPage = craftMethod('previousPage', this, function* () {
-    const router = yield* CraftRouterToYield(undefined, ({ navigate }) => ({
-      navigate,
-    }));
-    void router.navigate({
-      to: 'craft/mutation/:userId',
-      params: {
-        userId: String(parseInt(this.userId() ?? '10', 10) - 1),
-      },
-    });
-  });
-}
-
-export type GenDeps_MutationCraft = GetDeps<{
-  deps: {
-    JsonPipe: JsonPipe;
-    GenDeps_StatusComponent: GenDeps_StatusComponent;
-  };
-  propertiesDeps: {
-    _monitoring: ExtractDeps<MutationCraft['_monitoring']>;
-    userId: ExtractDeps<MutationCraft['userId']>;
-    store: {
-      UserMutation: ExtractDeps<typeof injectUserMutation>['UserMutation'];
-    };
-    updateUserNameFn: ExtractDeps<MutationCraft['updateUserNameFn']>;
-    nextPage: ExtractDeps<MutationCraft['nextPage']>;
-    previousPage: ExtractDeps<MutationCraft['previousPage']>;
-  };
-  provided: {
-    UserMutation: ReturnType<typeof provideUserMutation>;
-    HostName: ReturnType<typeof provideHostName>;
-  };
-  publicProperties: GetPublicComponentProperties<MutationCraft>;
-}>;
+export default MutationCraft;

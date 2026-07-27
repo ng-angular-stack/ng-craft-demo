@@ -1,6 +1,6 @@
 import { craftService } from '@craft-ng/core';
 
-export const { injectOtherService, provideOtherService } = craftService(
+export const { OtherService, provideOtherService } = craftService(
   {
     name: 'OtherService',
     scope: 'toProvide',
