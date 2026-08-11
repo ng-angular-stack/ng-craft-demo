@@ -11,7 +11,7 @@ import {
   Console,
   craftAppConfig,
   isCraftGenShortCircuit,
-  provideCorrelationIdTracking,
+  // provideCorrelationIdTracking,
   provideCraftRouter,
   provideGlobalPersisterHandlerService,
   provideLocalStoragePersister,
@@ -102,7 +102,8 @@ export const appConfig = craftAppConfig({
         }
       },
     ),
-    provideCorrelationIdTracking(),
+    // Disabled in the target demo to keep the initial bundle smaller.
+    // provideCorrelationIdTracking(),
     //provideSendContextToAi(),
     // App snapshot
     // eslint-disable-next-line craft-ng/prefer-browser-boundaries
