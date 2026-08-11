@@ -11,7 +11,7 @@ import {
   Console,
   craftAppConfig,
   isCraftGenShortCircuit,
-  // provideCorrelationIdTracking,
+  provideCorrelationIdTracking,
   provideCraftRouter,
   provideGlobalPersisterHandlerService,
   provideLocalStoragePersister,
@@ -34,7 +34,7 @@ import {
 import { App } from './app';
 import { demoRoutes } from './app.routes.runtime';
 import { provideMcpExperimentation } from './function-registry-entry';
-import { provideLogForwarding } from './log-forwarder';
+// provideLogForwarding import disabled for the target demo.
 import { MyGlobalErrorScreen } from './my-global-error-screen';
 import { MyRouteLoadErrorScreen } from './my-route-load-error-screen';
 import { AppStartLog } from './run-on-app-start/run-on-app-start';
@@ -49,10 +49,8 @@ export const appConfig = craftAppConfig({
   routingDeps: demoRoutes.META_PATHS,
   providers: [
     provideBrowserGlobalErrorListeners(),
-    // Overrides the craft ConsoleService: every Console.* call keeps printing
-    // in the browser and is also shipped to the local log server, where the
-    // logs MCP server can read it back.
-    provideLogForwarding(),
+    // Disabled in the target demo: do not send logs to the local log server.
+    // provideLogForwarding(),
     provideDemoTracing(),
     provideGlobalPersisterHandlerService(),
     provideLocalStoragePersister(),
@@ -102,8 +100,7 @@ export const appConfig = craftAppConfig({
         }
       },
     ),
-    // Disabled in the target demo to keep the initial bundle smaller.
-    // provideCorrelationIdTracking(),
+    provideCorrelationIdTracking(),
     //provideSendContextToAi(),
     // App snapshot
     // eslint-disable-next-line craft-ng/prefer-browser-boundaries
