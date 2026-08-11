@@ -1,9 +1,9 @@
-:host {
+:scope {
   display: block;
   background: #f5f7fa;
 }
 
-.container {
+:scope.container {
   display: flex;
   flex-direction: row;
   gap: 24px;

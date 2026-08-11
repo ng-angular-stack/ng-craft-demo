@@ -1,31 +1,33 @@
+import styles from './mutation.css' with { loader: 'text' };
 import {
   button,
   craftComponent,
   div,
-  h,
+  ifBlock,
   input,
   p,
+  pre,
   type Input,
 } from '@craft-ng/component';
 import {
   CraftRouter,
-  componentMonitoring,
+  craftComputed,
   craftMethod,
   craftService,
-  insertLocalStoragePersister,
+  insertStoragePersister,
   insertReactOnMutation,
-  craftPipe,
+  insertQueryPipe,
   mutation,
-  provideHostName,
   query,
+  state,
 } from '@craft-ng/core';
 import { StatusComponent } from '../../../ui/status.component';
 import { ApiService, type User } from './api.service';
 
-const { provideUserMutation, UserMutation } = craftService(
+export const { provideUserMutation, UserMutation } = craftService(
   { name: 'UserMutation', scope: 'toProvide' },
   function* (inputs: { userId: () => string | undefined }) {
-    const { updateUserName } = yield* mutation('updateUserName', {
+    const updateUserName = yield* mutation('updateUserName', {
       method: (payload: { userName: string; user: User }) => ({
         ...payload.user,
         name: payload.userName,
@@ -35,7 +37,7 @@ const { provideUserMutation, UserMutation } = craftService(
       },
     });
 
-    const { user } = yield* query(
+    const user = yield* query(
       'user',
       {
         params: inputs.userId,
@@ -44,19 +46,17 @@ const { provideUserMutation, UserMutation } = craftService(
         },
         preservePreviousValue: () => true,
       },
-      (context) =>
-        craftPipe(
-          context,
-          insertLocalStoragePersister({
-            storeName: 'demo-app-craft',
-            key: 'mutation',
-          }),
-          insertReactOnMutation(updateUserName, {
-            optimisticPatch: {
-              name: ({ mutationParams: { name } }) => name,
-            },
-          }),
-        ),
+      insertQueryPipe(
+        insertStoragePersister({
+          storeName: 'demo-app-craft',
+          key: 'mutation',
+        }),
+        insertReactOnMutation(updateUserName, {
+          optimisticPatch: {
+            name: ({ mutationParams: { name } }) => name,
+          },
+        }),
+      ),
     );
 
     return { user, updateUserName };
@@ -66,22 +66,23 @@ const { provideUserMutation, UserMutation } = craftService(
 const MutationCraft = craftComponent(
   'MutationCraft',
   {
-    providers: [
-      provideUserMutation(),
-      provideHostName('component:MutationCraft'),
-    ],
+    stylesUrl: styles,
+    providers: [provideUserMutation()],
   },
   function* (userId: Input<string | undefined>) {
-    componentMonitoring();
     const store = yield* UserMutation({ userId: () => userId() });
-    const { updateUserNameFn } = craftMethod(
+    const nameInput = yield* state('nameInput', '', ({ set }) => ({
+      setName: (value: string) => set(value),
+    }));
+    const hasUser = craftComputed('hasUser', () => store.user.hasValue());
+    const updateUserNameFn = craftMethod(
       'updateUserNameFn',
       function* (newName: string) {
         const { user, updateUserName } = yield* UserMutation(
           undefined,
           ({ user, updateUserName }) => ({ user, updateUserName }),
         );
-        const userValue = user.safeValue();
+        const userValue = user.value();
         if (userValue) {
           updateUserName.mutate({
             userName: newName,
@@ -93,36 +94,50 @@ const MutationCraft = craftComponent(
     const router = yield* CraftRouter(undefined, ({ navigate }) => ({
       navigate,
     }));
-    const { navigate } = craftMethod('navigate', function* (offset: number) {
+    const navigate = craftMethod('navigate', function* (offset: number) {
       void router.navigate({
         to: 'craft/mutation/:userId',
         params: { userId: String(Number(userId() ?? '0') + offset) },
       });
     });
-    return { store, updateUserNameFn, navigate };
+    return {
+      store,
+      nameInput,
+      setName: nameInput.setName,
+      hasUser,
+      updateUserNameFn,
+      navigate,
+    };
   },
-  ({ store, updateUserNameFn, navigate }) => {
-    let nameInput: HTMLInputElement | undefined;
-    return [
+  ({ store, nameInput, setName, hasUser, updateUserNameFn, navigate }) => {
+    return div([
       div([
         'User ',
         StatusComponent({ status: () => store.user.status() }),
-        store.user.hasValue()
-          ? h('pre', JSON.stringify(store.user.value(), null, 2))
-          : [],
+        ifBlock(hasUser, () =>
+          pre('UserValue', {}, () =>
+            JSON.stringify(store.user.value(), null, 2),
+          ),
+        ),
       ]),
       p('Reload to see the cached result; update the name optimistically.'),
-      input({
+      input('NameInput', {
         type: 'text',
         placeholder: 'New name',
-        input: (event) => {
-          nameInput = event.target as HTMLInputElement;
+        value: () => nameInput(),
+        *input(event) {
+          yield* setName((event.target as HTMLInputElement).value);
         },
       }),
       button(
+        'UpdateUserNameButton',
         {
-          disabled: store.updateUserName.isLoading(),
-          click: () => void updateUserNameFn(nameInput?.value ?? ''),
+          class: 'update-user-name',
+          disabled: () => store.updateUserName.isLoading(),
+          *click() {
+            const currentName = yield* nameInput();
+            yield* updateUserNameFn(currentName ?? '');
+          },
         },
         [
           'Update name ',
@@ -131,9 +146,25 @@ const MutationCraft = craftComponent(
           }),
         ],
       ),
-      button({ click: () => void navigate(-1) }, 'Previous user'),
-      button({ click: () => void navigate(1) }, 'Next user'),
-    ];
+      button(
+        'PreviousUser',
+        {
+          *click() {
+            yield* navigate(-1);
+          },
+        },
+        'Previous user',
+      ),
+      button(
+        'NextUser',
+        {
+          *click() {
+            yield* navigate(1);
+          },
+        },
+        'Next user',
+      ),
+    ]);
   },
 );
 

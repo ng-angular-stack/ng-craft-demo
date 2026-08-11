@@ -1,17 +1,21 @@
-import { signal } from '@angular/core';
+import { computed } from '@angular/core';
 import {
   button,
+  catchTag,
   craftComponent,
   div,
   h3,
+  ifBlock,
+  matchBlock,
   p,
   strong,
 } from '@craft-ng/component';
 import {
-  componentMonitoring,
   craftException,
-  provideHostName,
+  craftGen,
+  craftSleep,
   query,
+  state,
 } from '@craft-ng/core';
 
 type Scenario = 'success' | 'not-found' | 'consent-missing' | 'forbidden';
@@ -19,65 +23,153 @@ type Scenario = 'success' | 'not-found' | 'consent-missing' | 'forbidden';
 const ExceptionsComponent = craftComponent(
   'ExceptionsComponent',
   {
-    providers: [provideHostName('component:ExceptionsComponent')],
-    styles:
-      '.exception-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.exception-actions button{padding:8px 16px}',
+    styles: `
+      :scope {
+        display: block;
+        max-width: 760px;
+        margin: 2rem auto;
+        padding: 1.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        color: #1e293b;
+        background: #f8fafc;
+      }
+      :scope h3 { margin: 0 0 1rem; color: #0f172a; }
+      :scope .exception-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+      }
+      :scope .exception-actions button {
+        padding: 0.5rem 1rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        color: #334155;
+        background: #fff;
+        cursor: pointer;
+      }
+      :scope .exception-actions button:hover { background: #f1f5f9; }
+      :scope p { margin: 0.5rem 0; }
+    `,
   },
   function* () {
-    componentMonitoring();
-    const scenario = signal<Scenario>('success');
-    const { userQuery } = yield* query('userQuery', {
-      params: scenario,
-      loader: async ({ params }) => {
-        await new Promise((resolve) => setTimeout(resolve, 600));
-        if (params === 'not-found') {
-          return craftException(
-            { code: 'UserNotFoundException' },
-            { message: 'User does not exist' as const },
-          );
-        }
-        if (params === 'consent-missing') {
-          return craftException(
-            { code: 'UserConsentMissingException' },
-            { message: 'User consent is required' as const },
-          );
-        }
-        if (params === 'forbidden') {
-          return craftException(
-            { code: 'UserAccessForbiddenException' },
-            { message: 'Access forbidden' as const },
-          );
-        }
-        return { id: 'user-1', name: 'John Doe', email: 'john@doe.dev' };
+    const scenario = yield* state(
+      'scenario',
+      'success' as Scenario,
+      ({ set }) => ({ select: (value: Scenario) => set(value) }),
+    );
+    const userQuery = yield* query(
+      'userQuery',
+      {
+        params: scenario,
+        loader: craftGen(function* ({ params }) {
+          yield* craftSleep(600);
+          if (params === 'not-found') {
+            return craftException(
+              { code: 'UserNotFoundException' },
+              { message: 'User does not exist' as const },
+            );
+          }
+          if (params === 'consent-missing') {
+            return craftException(
+              { code: 'UserConsentMissingException' },
+              { message: 'User consent is required' as const },
+            );
+          }
+          if (params === 'forbidden') {
+            return craftException(
+              { code: 'UserAccessForbiddenException' },
+              { message: 'Access forbidden' as const },
+            );
+          }
+          return { id: 'user-1', name: 'John Doe', email: 'john@doe.dev' };
+        }),
       },
-    });
+      ({ resource }) => ({
+        hasUser: computed(() => resource.hasValue()),
+        isLoading: computed(() => resource.isLoading()),
+      }),
+    );
     return { scenario, userQuery };
   },
   ({ scenario, userQuery }) => {
-    const exception = userQuery.exceptions().loader;
-    const user = userQuery.safeValue();
-    return [
-      h3(`Query user with business exceptions (${userQuery.status()})`),
+    const currentUser = () =>
+      userQuery.value() as { id: string; name: string; email: string };
+    return div([
+      h3(() => `Query user with business exceptions (${userQuery.status()})`),
       div({ class: 'exception-actions' }, [
-        button({ click: () => scenario.set('success') }, 'Success'),
-        button({ click: () => scenario.set('not-found') }, 'User not found'),
         button(
-          { click: () => scenario.set('consent-missing') },
+          {
+            *click() {
+              yield* scenario.select('success');
+            },
+          },
+          'Success',
+        ),
+        button(
+          {
+            *click() {
+              yield* scenario.select('not-found');
+            },
+          },
+          'User not found',
+        ),
+        button(
+          {
+            *click() {
+              yield* scenario.select('consent-missing');
+            },
+          },
           'Consent missing',
         ),
-        button({ click: () => scenario.set('forbidden') }, 'Access forbidden'),
+        button(
+          {
+            *click() {
+              yield* scenario.select('forbidden');
+            },
+          },
+          'Access forbidden',
+        ),
       ]),
-      user
-        ? div([
-            p([strong('ID: '), user.id]),
-            p([strong('Name: '), user.name]),
-            p([strong('Email: '), user.email]),
-          ])
-        : exception
-          ? p(`⚠️ ${exception.code}`)
-          : p('Loading user…'),
-    ];
+      ifBlock(
+        userQuery.hasUser,
+        () =>
+          div([
+            p([strong('ID: '), () => currentUser().id]),
+            p([strong('Name: '), () => currentUser().name]),
+            p([strong('Email: '), () => currentUser().email]),
+          ]),
+        () => [
+          matchBlock.exhaustive(() => userQuery.exceptions().loader, 'code', {
+            UserNotFoundException: () =>
+              p('⚠️ User not found (rendered by matchBlock.exhaustive)'),
+            UserConsentMissingException: () =>
+              p(
+                '⚠️ User consent is required (rendered by matchBlock.exhaustive)',
+              ),
+            UserAccessForbiddenException: () =>
+              p('⚠️ Access forbidden (rendered by matchBlock.exhaustive)'),
+          }),
+          ifBlock(userQuery.isLoading, () => p('Loading user…')),
+        ],
+      ),
+    ]);
   },
+).pipe(
+  catchTag.exhaustive({
+    // The query exposes these exceptions as a signal; template rendering is
+    // handled by matchBlock.exhaustive above.
+    UserNotFoundException: function* () {
+      return;
+    },
+    UserConsentMissingException: function* () {
+      return;
+    },
+    UserAccessForbiddenException: function* () {
+      return;
+    },
+  }),
 );
 
 export default ExceptionsComponent;

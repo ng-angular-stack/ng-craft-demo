@@ -1,10 +1,8 @@
 import { craftComponent, div, p } from '@craft-ng/component';
 import {
-  componentMonitoring,
   craftException,
   CraftHttpClient,
   craftService,
-  provideHostName,
   query,
 } from '@craft-ng/core';
 import type { User } from '../query/api.service';
@@ -32,12 +30,13 @@ const { UsersApiOnError } = craftService(
         },
       ],
     }));
+    const _query = yield* query('query', {
+      params: () => true,
+      loader: () => users(),
+    });
     return {
       users,
-      query: (yield* query('query', {
-        params: () => true,
-        loader: () => users(),
-      })).query,
+      query: _query,
     };
   },
 );
@@ -47,13 +46,9 @@ const { Test2 } = craftService({ name: 'test2', scope: 'global' }, () => ({}));
 export const OtherComponent = craftComponent(
   'OtherComponent',
   {
-    providers: [
-      provideOtherService(),
-      provideHostName('component:OtherComponent'),
-    ],
+    providers: [provideOtherService()],
   },
   function* () {
-    componentMonitoring();
     return {
       other: yield* OtherService(),
       users: yield* UsersApiOnError(),
@@ -61,5 +56,8 @@ export const OtherComponent = craftComponent(
     };
   },
   ({ other, users }) =>
-    div([p(other.getValue()), p(`Query status: ${users.query.status()}`)]),
+    div([
+      p(() => other.getValue()),
+      p(() => `Query status: ${users.query.status()}`),
+    ]),
 );

@@ -1,109 +1,139 @@
+import styles from './mutation.css' with { loader: 'text' };
 import {
   button,
   craftComponent,
   div,
-  h,
+  ifBlock,
   input,
   p,
+  pre,
   type Input,
 } from '@craft-ng/component';
 import {
   CraftRouter,
-  componentMonitoring,
-  craftPipe,
-  insertLocalStoragePersister,
+  insertStoragePersister,
   insertReactOnMutation,
+  insertQueryPipe,
   mutation,
-  provideHostName,
   query,
+  state,
+  craftMethod,
 } from '@craft-ng/core';
 import { StatusComponent } from '../../../ui/status.component';
 import { ApiService, type User } from './api.service';
+import { computed } from '@angular/core';
 
 const MutationDemoComponent = craftComponent(
   'MutationDemoComponent',
-  { providers: [provideHostName('component:MutationDemoComponent')] },
+  {
+    stylesUrl: styles,
+  },
   function* (userId: Input<string | undefined>) {
-    componentMonitoring();
-    const api = yield* ApiService();
-    const { updateUserName } = yield* mutation('updateUserName', {
+    const updateUserName = yield* mutation('updateUserName', {
       method: (payload: { userName: string; user: User }) => ({
         ...payload.user,
         name: payload.userName,
       }),
-      loader: ({ params: user }) => api.updateItem(user),
+      loader: function* ({ params: user }) {
+        return yield* ApiService.updateItem(user);
+      },
     });
-    const { userQuery } = yield* query(
+    const nameInput = yield* state('nameInput', '', ({ set }) => ({
+      setName: (value: string) => set(value.trim()),
+    }));
+    const userQuery = yield* query(
       'userQuery',
       {
         params: userId,
-        loader: ({ params }) => api.getItemById(params),
+        loader: function* ({ params }) {
+          return yield* ApiService.getItemById(params);
+        },
         preservePreviousValue: () => true,
       },
-      (context) =>
-        craftPipe(
-          context,
-          insertLocalStoragePersister({
-            storeName: 'demo-app',
-            key: 'mutation',
-          }),
-          insertReactOnMutation(updateUserName, {
-            optimisticPatch: {
-              name: ({ mutationParams: { name } }) => name,
-            },
-          }),
-        ),
+      insertQueryPipe(
+        ({ resource }) => ({ hasUser: computed(() => resource.hasValue()) }),
+        insertStoragePersister({
+          storeName: 'demo-app',
+          key: 'mutation',
+        }),
+        insertReactOnMutation(updateUserName, {
+          optimisticPatch: {
+            name: ({ mutationParams: { name } }) => name,
+          },
+        }),
+      ),
     );
+
     const router = yield* CraftRouter(undefined, ({ navigate }) => ({
       navigate,
     }));
-    const navigate = (offset: number) =>
+
+    const goTo = (offset: number) => {
       void router.navigate({
         to: 'mutation/:userId',
         params: { userId: String(Number(userId() ?? '0') + offset) },
       });
-    const update = (name: string) => {
-      const user = userQuery.safeValue();
+    };
+    const update = craftMethod('update', function* (name: string | undefined) {
+      if (!name) {
+        return;
+      }
+      const user = userQuery.value();
       if (user) {
-        updateUserName.mutate({
+        yield* updateUserName.mutate({
           userName: name,
           user,
         });
       }
+    });
+
+    return {
+      userQuery,
+      updateUserName,
+      update,
+      goTo,
+      nameInput,
+      setName: nameInput.setName,
     };
-    return { userQuery, updateUserName, update, navigate };
   },
-  ({ userQuery, updateUserName, update, navigate }) => {
-    let name = '';
-    return [
+  ({ userQuery, updateUserName, update, goTo, nameInput, setName }) => {
+    return div([
       div([
         'User ',
         StatusComponent({ status: () => userQuery.status() }),
-        userQuery.hasValue()
-          ? h('pre', JSON.stringify(userQuery.value(), null, 2))
-          : [],
+        ifBlock(userQuery.hasUser, () =>
+          pre('UserValue', {}, () =>
+            JSON.stringify(userQuery.value(), null, 2),
+          ),
+        ),
       ]),
       p('Reload to see the cached result; update the name optimistically.'),
-      input({
+      input('NameInput', {
         type: 'text',
         placeholder: 'New name',
-        input: (event) => {
-          name = (event.target as HTMLInputElement).value;
+        value: () => nameInput(),
+        *input(event) {
+          yield* setName((event.target as HTMLInputElement).value);
         },
       }),
       button(
+        'UpdateUserNameButton',
         {
-          disabled: updateUserName.isLoading(),
-          click: () => update(name),
+          class: 'update-user-name',
+          disabled: () => updateUserName.isLoading(),
+          click: function* () {
+            const currentName = yield* nameInput();
+            yield* update(currentName);
+          },
         },
         [
           'Update name ',
           StatusComponent({ status: () => updateUserName.status() }),
         ],
       ),
-      button({ click: () => navigate(-1) }, 'Previous user'),
-      button({ click: () => navigate(1) }, 'Next user'),
-    ];
+      button('PreviousUser', { click: () => goTo(-1) }, 'Previous user'),
+      button('NextUser', { click: () => goTo(1) }, 'Next user'),
+    ]);
   },
 );
 

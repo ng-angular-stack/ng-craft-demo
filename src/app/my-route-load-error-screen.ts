@@ -1,33 +1,36 @@
 import { button, craftComponent, div, h2, p } from '@craft-ng/component';
 import {
+  craftComputed,
   CraftRouteLoadError,
   CraftRouteLoadRecovery,
-  provideHostName,
 } from '@craft-ng/core';
 
 export const MyRouteLoadErrorScreen = craftComponent(
   'MyRouteLoadErrorScreen',
   {
-    providers: [provideHostName('component:MyRouteLoadErrorScreen')],
     styles: `
       :scope{padding:2rem;border:1px solid #f97316;border-radius:8px;background:#fff7ed;color:#9a3412}
       .actions{display:flex;gap:.75rem;margin-top:1rem}
     `,
   },
   function* () {
+    const error = yield* CraftRouteLoadError();
+    const message = craftComputed('message', () => {
+      const current = error();
+      return current
+        ? `Failed to load ${current.payload.phase} for route "${current.payload.routePath}" after ${current.payload.attempt} attempts.`
+        : 'The requested route chunk could not be loaded.';
+    }) as unknown as () => string;
     return {
-      error: yield* CraftRouteLoadError(),
+      error,
+      message,
       recovery: yield* CraftRouteLoadRecovery(),
     };
   },
-  ({ error, recovery }) => {
-    const current = error();
-    const message = current
-      ? `Failed to load ${current.payload.phase} for route "${current.payload.routePath}" after ${current.payload.attempt} attempts.`
-      : 'The requested route chunk could not be loaded.';
+  ({ message, recovery }) => {
     return div([
       h2('⚠️ Route chunk failed'),
-      p(message),
+      p(() => message()),
       div({ class: 'actions' }, [
         button({ click: () => void recovery.retry() }, 'Retry route load'),
         button({ click: () => recovery.reload() }, 'Reload app'),

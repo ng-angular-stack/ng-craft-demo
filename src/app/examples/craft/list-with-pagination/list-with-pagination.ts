@@ -1,55 +1,45 @@
+import styles from './list-with-pagination.css' with { loader: 'text' };
 import { computed } from '@angular/core';
 import {
   button,
+  ifBlock,
   craftComponent,
   div,
   each,
   h,
   h2,
+  main,
   option,
   select,
   span,
 } from '@craft-ng/component';
 import {
-  componentMonitoring,
+  craftComputed,
   craftMethod,
-  craftPipe,
   craftService,
-  insertLocalStoragePersister,
+  insertStoragePersister,
   insertPaginationPlaceholderData,
-  provideHostName,
+  insertQueryPipe,
   query,
   queryParams,
 } from '@craft-ng/core';
+import { paginationQueryParams } from '../../../query-params.utils';
 import { StatusComponent } from '../../../ui/status.component';
 import { ApiService, type User } from './api.service';
 
-const { provideUserList, UserList } = craftService(
+export const { provideUserList, UserList } = craftService(
   { name: 'UserList', scope: 'toProvide' },
   function* () {
-    const { pagination } = yield* queryParams(
+    const pagination = yield* queryParams(
       'pagination',
-      {
-        state: {
-          page: {
-            fallbackValue: 1,
-            parse: (value) => Number(value),
-            serialize: String,
-          },
-          pageSize: {
-            fallbackValue: 4,
-            parse: (value) => Number(value),
-            serialize: String,
-          },
-        },
-      },
+      paginationQueryParams(),
       ({ patch, state }) => ({
         nextPage: () => patch({ page: state().page + 1 }),
-        previousPage: () => patch({ page: state().page - 1 }),
+        previousPage: () => patch({ page: Math.max(1, state().page - 1) }),
         updatePageSize: (pageSize: number) => patch({ pageSize, page: 1 }),
       }),
     );
-    const { users } = yield* query(
+    const users = yield* query(
       'users',
       {
         params: pagination,
@@ -58,20 +48,18 @@ const { provideUserList, UserList } = craftService(
           return yield* ApiService.getDataList(params);
         },
       },
-      (context) =>
-        craftPipe(
-          context,
-          insertLocalStoragePersister({
-            storeName: 'demo-app-craft',
-            key: 'list-with-pagination',
+      insertQueryPipe(
+        insertStoragePersister({
+          storeName: 'demo-app-craft',
+          key: 'list-with-pagination',
+        }),
+        insertPaginationPlaceholderData(
+          { initialValue: [] as User[] },
+          ({ state }) => ({
+            total: computed(() => state().length),
           }),
-          insertPaginationPlaceholderData(
-            { initialValue: [] as User[] },
-            ({ state }) => ({
-              total: computed(() => state().length),
-            }),
-          ),
         ),
+      ),
     );
     return { pagination, users };
   },
@@ -80,15 +68,16 @@ const { provideUserList, UserList } = craftService(
 const ListWithPaginationCraft = craftComponent(
   'ListWithPaginationCraft',
   {
-    providers: [
-      provideUserList(),
-      provideHostName('component:ListWithPaginationCraft'),
-    ],
+    stylesUrl: styles,
+    providers: [provideUserList()],
   },
   function* () {
-    componentMonitoring();
     const store = yield* UserList();
-    const { updatePageSize } = craftMethod(
+    const isCurrentPageResolved = craftComputed(
+      'isCurrentPageResolved',
+      () => store.users.currentPageStatus() === 'resolved',
+    );
+    const updatePageSize = craftMethod(
       'updatePageSize',
       function* (event: Event) {
         (yield* UserList()).pagination.updatePageSize(
@@ -96,54 +85,96 @@ const ListWithPaginationCraft = craftComponent(
         );
       },
     );
-    return { store, updatePageSize };
+    return { store, updatePageSize, isCurrentPageResolved };
   },
-  ({ store, updatePageSize }) =>
-    div([
-      h2([
-        'User Management: ',
-        StatusComponent({
-          status: () => store.users.currentPageStatus(),
-        }),
-        span(` ${store.users.total()} on page`),
-      ]),
-      h('table', [
-        h('thead', h('tr', [h('th', 'ID'), h('th', 'Name')])),
-        h(
-          'tbody',
-          each(
-            () => store.users.currentPageData() ?? [],
-            {
-              track: (user) => user.id,
-              empty: () =>
+  ({ store, updatePageSize, isCurrentPageResolved }) =>
+    div({ class: 'container' }, [
+      main({ class: 'content' }, [
+        div({ class: 'content-wrapper' }, [
+          div({ class: 'card' }, [
+            h2({ class: 'card-title' }, [
+              'User Management: ',
+              StatusComponent({
+                status: () => store.users.currentPageStatus(),
+              }),
+              span(
+                'TotalUsers',
+                { class: 'current-page' },
+                () => ` ${store.users.total()} on page`,
+              ),
+            ]),
+            div({ class: 'table-container' }, [
+              h('table', { class: 'table' }, [
+                h('thead', h('tr', [h('th', 'ID'), h('th', 'Name')])),
                 h(
-                  'tr',
-                  h(
-                    'td',
-                    { colSpan: 2 },
-                    store.users.currentPageStatus() === 'resolved'
-                      ? 'No users found'
-                      : 'Loading…',
+                  'tbody',
+                  each(
+                    store.users.currentPageData,
+                    {
+                      track: (user) => user.id,
+                      empty: () =>
+                        h(
+                          'tr',
+                          h(
+                            'td',
+                            {
+                              colSpan: 2,
+                              style: {
+                                textAlign: 'center',
+                                padding: '32px',
+                              },
+                            },
+                            ifBlock(
+                              isCurrentPageResolved,
+                              () => 'No users found',
+                              () => 'Loading…',
+                            ),
+                          ),
+                        ),
+                    },
+                    (user) => h('tr', [h('td', user.id), h('td', user.name)]),
                   ),
                 ),
-            },
-            (user) => h('tr', [h('td', String(user.id)), h('td', user.name)]),
-          ),
-        ),
-      ]),
-      div([
-        select(
-          {
-            value: String(store.pagination().pageSize),
-            change: (event) => void updatePageSize(event),
-          },
-          [2, 4, 8, 16].map((size) =>
-            option({ value: String(size) }, String(size)),
-          ),
-        ),
-        button({ click: store.pagination.previousPage }, 'Previous'),
-        span(String(store.pagination().page)),
-        button({ click: store.pagination.nextPage }, 'Next'),
+              ]),
+            ]),
+            div({ class: 'pagination' }, [
+              select(
+                'PageSize',
+                {
+                  value: () => String(store.pagination().pageSize),
+                  style: { marginRight: '8px' },
+                  *change(event) {
+                    yield* updatePageSize(event);
+                  },
+                },
+                [2, 4, 8, 16].map((size) =>
+                  option(
+                    {
+                      value: String(size),
+                      selected: () => size === store.pagination().pageSize,
+                    },
+                    size,
+                  ),
+                ),
+              ),
+              button(
+                'PreviousPage',
+                { class: 'btn', click: store.pagination.previousPage },
+                'Previous',
+              ),
+              span(
+                'CurrentPage',
+                { class: 'current-page' },
+                () => store.pagination().page,
+              ),
+              button(
+                'NextPage',
+                { class: 'btn', click: store.pagination.nextPage },
+                'Next',
+              ),
+            ]),
+          ]),
+        ]),
       ]),
     ]),
 );

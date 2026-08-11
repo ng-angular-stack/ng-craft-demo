@@ -151,6 +151,12 @@ export function createFunctionRegistry(): FunctionRegistry {
   const overrides = new Map<string, InternalOverride>();
   const publicEntries = signal<readonly FunctionRegistryEntry[]>([]);
   const publicLogs = signal<readonly FunctionRegistryLog[]>([]);
+  const replaceEntries = (entries: readonly FunctionRegistryEntry[]): void => {
+    publicEntries.set(entries);
+  };
+  const appendLogEntry = (log: FunctionRegistryLog): void => {
+    publicLogs.update((logs) => [...logs, log].slice(-MAX_LOG_ENTRIES));
+  };
   let nextLogId = 1;
 
   const appendLog = (
@@ -165,9 +171,7 @@ export function createFunctionRegistry(): FunctionRegistry {
       message,
       ...(key === undefined ? {} : { key }),
     };
-    untracked(() =>
-      publicLogs.update((logs) => [...logs, log].slice(-MAX_LOG_ENTRIES)),
-    );
+    untracked(() => appendLogEntry(log));
   };
 
   const toPublicEntry = (entry: InternalEntry): FunctionRegistryEntry => {
@@ -228,9 +232,9 @@ export function createFunctionRegistry(): FunctionRegistry {
   };
 
   const publishEntries = (): void => {
-    untracked(() =>
-      publicEntries.set(Array.from(internalEntries.values(), toPublicEntry)),
-    );
+    untracked(() => {
+      replaceEntries(Array.from(internalEntries.values(), toPublicEntry));
+    });
   };
 
   const observeOverrideResult = (key: string, result: unknown): unknown => {

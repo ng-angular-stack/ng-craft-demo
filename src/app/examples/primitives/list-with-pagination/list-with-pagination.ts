@@ -1,3 +1,4 @@
+import styles from './list-with-pagination.css' with { loader: 'text' };
 import {
   button,
   craftComponent,
@@ -5,63 +6,71 @@ import {
   each,
   h,
   h2,
+  ifBlock,
   option,
   select,
   span,
 } from '@craft-ng/component';
 import {
-  componentMonitoring,
-  craftPipe,
-  insertLocalStoragePersister,
+  insertStoragePersister,
   insertPaginationPlaceholderData,
-  provideHostName,
+  insertQueryPipe,
   query,
   queryParams,
 } from '@craft-ng/core';
+import { paginationQueryParams } from '../../../query-params.utils';
 import { StatusComponent } from '../../../ui/status.component';
 import { ApiService, type User } from './api.service';
+import { computed } from '@angular/core';
 
 const ListWithPagination = craftComponent(
   'ListWithPagination',
-  { providers: [provideHostName('component:ListWithPagination')] },
+  {
+    stylesUrl: styles,
+  },
   function* () {
-    componentMonitoring();
-    const { pagination } = yield* queryParams(
+    const pagination = yield* queryParams(
       'pagination',
-      {
-        state: {
-          page: { fallbackValue: 1, parse: Number, serialize: String },
-          pageSize: { fallbackValue: 4, parse: Number, serialize: String },
-        },
-      },
+      paginationQueryParams(),
       ({ patch, state }) => ({
         nextPage: () => patch({ page: state().page + 1 }),
-        previousPage: () => patch({ page: state().page - 1 }),
+        previousPage: () => patch({ page: Math.max(1, state().page - 1) }),
         updatePageSize: (pageSize: number) => patch({ pageSize, page: 1 }),
       }),
     );
-    const api = yield* ApiService();
-    const { usersQuery } = yield* query(
+    const usersQuery = yield* query(
       'usersQuery',
       {
         params: pagination,
         identifier: ({ page, pageSize }) => `${page}-${pageSize}`,
-        loader: ({ params }) => api.getDataList(params),
+        loader: function* ({ params }) {
+          return yield* ApiService.getDataList(params);
+        },
       },
-      (context) =>
-        craftPipe(
-          context,
-          insertLocalStoragePersister({
-            storeName: 'demo-app',
-            key: 'list-with-pagination',
+      insertQueryPipe(
+        insertStoragePersister({
+          storeName: 'demo-app',
+          key: 'list-with-pagination',
+        }),
+        insertPaginationPlaceholderData(
+          { initialValue: [] as User[] },
+          ({ currentPageStatus }) => ({
+            isCurrentPageResolved: computed(
+              () => currentPageStatus() === 'resolved',
+            ),
           }),
-          insertPaginationPlaceholderData({ initialValue: [] as User[] }),
         ),
+      ),
     );
-    return { pagination, usersQuery };
+
+    const updatePageSize = (event: Event) =>
+      pagination.updatePageSize(
+        Number((event.target as HTMLSelectElement).value),
+      );
+    return { pagination, usersQuery, updatePageSize };
   },
-  ({ pagination, usersQuery }) =>
-    div([
+  ({ pagination, usersQuery, updatePageSize }) => {
+    return div([
       h2([
         'User Management: ',
         StatusComponent({
@@ -70,10 +79,11 @@ const ListWithPagination = craftComponent(
       ]),
       h(
         'table',
+        { class: 'table' },
         h(
           'tbody',
           each(
-            () => usersQuery.currentPageData() ?? [],
+            usersQuery.currentPageData,
             {
               track: (user) => user.id,
               empty: () =>
@@ -81,34 +91,41 @@ const ListWithPagination = craftComponent(
                   'tr',
                   h(
                     'td',
-                    usersQuery.currentPageStatus() === 'resolved'
-                      ? 'No users found'
-                      : 'Loading…',
+                    ifBlock(
+                      usersQuery.isCurrentPageResolved,
+                      () => 'No users found',
+                      () => 'Loading…',
+                    ),
                   ),
                 ),
             },
-            (user) => h('tr', [h('td', String(user.id)), h('td', user.name)]),
+            (user) => h('tr', [h('td', user.id), h('td', user.name)]),
           ),
         ),
       ),
-      div([
+      div({ class: 'pagination' }, [
         select(
+          'PageSize',
           {
-            value: String(pagination().pageSize),
-            change: (event) =>
-              pagination.updatePageSize(
-                Number((event.target as HTMLSelectElement).value),
-              ),
+            value: () => String(pagination().pageSize),
+            change: updatePageSize,
           },
           [2, 4, 8, 16].map((size) =>
-            option({ value: String(size) }, String(size)),
+            option(
+              {
+                value: String(size),
+                selected: () => size === pagination().pageSize,
+              },
+              size,
+            ),
           ),
         ),
-        button({ click: pagination.previousPage }, 'Previous'),
-        span(String(pagination().page)),
-        button({ click: pagination.nextPage }, 'Next'),
+        button('PreviousPage', { click: pagination.previousPage }, 'Previous'),
+        span('CurrentPage', { class: 'current-page' }, () => pagination().page),
+        button('NextPage', { click: pagination.nextPage }, 'Next'),
       ]),
-    ]),
+    ]);
+  },
 );
 
 export default ListWithPagination;

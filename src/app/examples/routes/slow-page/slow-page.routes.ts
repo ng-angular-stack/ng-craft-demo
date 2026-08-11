@@ -9,6 +9,7 @@ import {
   craftService,
   query,
   craftRoute,
+  craftSleep,
   retry,
   craftUntilSettled,
   type CanRun,
@@ -33,10 +34,10 @@ import { loadCraftComponent } from '@craft-ng/component';
 const { SlowAccess } = craftService(
   { name: 'SlowAccess', scope: 'global' },
   function* () {
-    const { slowAccess } = yield* query('slowAccess', {
+    const slowAccess = yield* query('slowAccess', {
       params: () => true,
-      loader: async () => {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+      loader: function* () {
+        yield* craftSleep(1500);
         return { allowed: true } as const;
       },
     });
@@ -47,10 +48,10 @@ const { SlowAccess } = craftService(
 const { SlowReport } = craftService(
   { name: 'SlowReport', scope: 'global' },
   function* () {
-    const { slowReport } = yield* query('slowReport', {
+    const slowReport = yield* query('slowReport', {
       params: () => true,
-      loader: async () => {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+      loader: function* () {
+        yield* craftSleep(1500);
         return {
           generatedAt: new Date().toLocaleTimeString(),
           totalUsers: 1234,

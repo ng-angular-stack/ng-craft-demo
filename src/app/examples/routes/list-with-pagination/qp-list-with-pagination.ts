@@ -1,3 +1,4 @@
+import styles from './list-with-pagination.css' with { loader: 'text' };
 import {
   button,
   craftComponent,
@@ -10,57 +11,56 @@ import {
   span,
 } from '@craft-ng/component';
 import {
-  componentMonitoring,
-  craftPipe,
-  insertLocalStoragePersister,
+  insertStoragePersister,
   insertPaginationPlaceholderData,
-  provideHostName,
+  insertQueryPipe,
   query,
   queryParams,
 } from '@craft-ng/core';
+import { paginationQueryParams } from '../../../query-params.utils';
 import { StatusComponent } from '../../../ui/status.component';
 import { ApiService, type User } from './api.service';
 
 const QpListWithPagination = craftComponent(
   'QpListWithPagination',
-  { providers: [provideHostName('component:QpListWithPagination')] },
+  {
+    stylesUrl: styles,
+  },
   function* () {
-    componentMonitoring();
-    const { pagination } = yield* queryParams(
+    const pagination = yield* queryParams(
       'pagination',
-      {
-        state: {
-          page: { fallbackValue: 1, parse: Number, serialize: String },
-          pageSize: { fallbackValue: 4, parse: Number, serialize: String },
-        },
-      },
+      paginationQueryParams(),
       ({ patch, state }) => ({
         nextPage: () => patch({ page: state().page + 1 }),
-        previousPage: () => patch({ page: state().page - 1 }),
+        previousPage: () => patch({ page: Math.max(1, state().page - 1) }),
         updatePageSize: (pageSize: number) => patch({ pageSize, page: 1 }),
       }),
     );
     const api = yield* ApiService();
-    const { usersQuery } = yield* query(
+    const usersQuery = yield* query(
       'usersQuery',
       {
         params: pagination,
         identifier: ({ page, pageSize }) => `${page}-${pageSize}`,
-        loader: ({ params }) => api.getDataList(params),
+        loader: function* ({ params }) {
+          return yield* api.getDataList(params);
+        },
       },
-      (context) =>
-        craftPipe(
-          context,
-          insertLocalStoragePersister({
-            storeName: 'demo-app',
-            key: 'route-list-with-pagination',
-          }),
-          insertPaginationPlaceholderData({ initialValue: [] as User[] }),
-        ),
+      insertQueryPipe(
+        insertStoragePersister({
+          storeName: 'demo-app',
+          key: 'route-list-with-pagination',
+        }),
+        insertPaginationPlaceholderData({ initialValue: [] as User[] }),
+      ),
     );
-    return { pagination, usersQuery };
+    const updatePageSize = (event: Event) =>
+      pagination.updatePageSize(
+        Number((event.target as HTMLSelectElement).value),
+      );
+    return { pagination, usersQuery, updatePageSize };
   },
-  ({ pagination, usersQuery }) =>
+  ({ pagination, updatePageSize, usersQuery }) =>
     div([
       h2([
         'Route QueryParams pagination: ',
@@ -73,27 +73,22 @@ const QpListWithPagination = craftComponent(
         h(
           'tbody',
           each(
-            () => usersQuery.currentPageData() ?? [],
+            usersQuery.currentPageData,
             { track: (user) => user.id },
-            (user) => h('tr', [h('td', String(user.id)), h('td', user.name)]),
+            (user) => h('tr', [h('td', user.id), h('td', user.name)]),
           ),
         ),
       ),
       div([
         select(
           {
-            value: String(pagination().pageSize),
-            change: (event) =>
-              pagination.updatePageSize(
-                Number((event.target as HTMLSelectElement).value),
-              ),
+            value: () => pagination().pageSize,
+            change: updatePageSize,
           },
-          [2, 4, 8, 16].map((size) =>
-            option({ value: String(size) }, String(size)),
-          ),
+          [2, 4, 8, 16].map((size) => option({ value: size }, size)),
         ),
         button({ click: pagination.previousPage }, 'Previous'),
-        span(String(pagination().page)),
+        span(() => pagination().page),
         button({ click: pagination.nextPage }, 'Next'),
       ]),
     ]),

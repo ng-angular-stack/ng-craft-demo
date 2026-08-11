@@ -1,82 +1,135 @@
-import {
-  ActivatedRoute as ActivatedRouteToken,
-  Router as RouterToken,
-} from '@angular/router';
+import { computed } from '@angular/core';
 import {
   button,
   craftComponent,
   div,
   h,
+  ifBlock,
   p,
   section,
   strong,
 } from '@craft-ng/component';
 import {
-  componentMonitoring,
-  craftException,
-  provideHostName,
+  craftMethod,
+  CraftRouter,
   queryParams,
-  toCraftService,
+  craftException,
 } from '@craft-ng/core';
-
-const { ActivatedRoute } = toCraftService({
-  name: 'ActivatedRoute',
-  scope: 'global',
-  token: ActivatedRouteToken,
-});
-const { Router } = toCraftService({
-  name: 'Router',
-  scope: 'global',
-  token: RouterToken,
-});
 
 const ExceptionQueryParamsComponent = craftComponent(
   'ExceptionQueryParamsComponent',
-  { providers: [provideHostName('component:ExceptionQueryParamsComponent')] },
+  {
+    styles: `
+      :scope {
+        display: block;
+        max-width: 620px;
+        margin: 2rem auto;
+        padding: 1.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        color: #1e293b;
+        background: #f8fafc;
+      }
+      :scope h4 { margin: 0 0 1rem; color: #0f172a; }
+      :scope > div {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      :scope button {
+        padding: 0.5rem 0.9rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        color: #334155;
+        background: #fff;
+        cursor: pointer;
+      }
+      :scope button:hover { background: #f1f5f9; }
+      :scope p { margin: 0.5rem 0; }
+    `,
+  },
   function* () {
-    componentMonitoring();
-    const router = yield* Router(undefined, ({ navigate }) => ({
+    const router = yield* CraftRouter(undefined, ({ navigate }) => ({
       navigate,
     }));
-    const activatedRoute = yield* ActivatedRoute();
-    const { modeQueryParams } = yield* queryParams('modeQueryParams', {
-      state: {
-        mode: {
-          fallbackValue: 'fallbackValue' as const,
-          parse: (value: string) =>
-            value === 'success'
-              ? ('success' as const)
-              : craftException(
-                  { code: 'InvalidModeFromUrl' },
-                  { received: value },
-                ),
-          serialize: String,
+    const modeQueryParams = yield* queryParams(
+      'modeQueryParams',
+      {
+        state: {
+          mode: {
+            fallbackValue: 'fallbackValue' as const,
+            codec: {
+              // The runtime accepts a CraftException as a decode result and
+              // records it in `exceptions().parse`; the cast keeps the public
+              // decoded state limited to the successful domain value.
+              decode: ((value: string) => {
+                if (value !== 'success') {
+                  return craftException(
+                    { code: 'UNEXPECTED_ERROR' },
+                    { error: new Error(`Invalid mode: ${value}`) },
+                  );
+                }
+                return 'success' as const;
+              }) as (value: string) => 'success' | 'fallbackValue',
+              encode: String,
+            },
+          },
         },
       },
-    });
-    const navigate = (mode: string) =>
-      void router.navigate([], {
-        relativeTo: activatedRoute,
+      ({ exceptions }) => ({
+        hasParseException: computed(
+          () => exceptions().parse.mode !== undefined,
+        ),
+      }),
+    );
+    const navigate = craftMethod('navigate', function* (mode: string) {
+      void router.navigate({
+        to: 'exception-query-params',
+        //@ts-expect-error intentional to demonstrate the example
         queryParams: { mode },
         queryParamsHandling: 'merge',
       });
+    });
     return { modeQueryParams, navigate };
   },
   ({ modeQueryParams, navigate }) => {
-    const exception = modeQueryParams.exceptions().parse.mode;
     return section([
-      h('h4', 'QueryParams parse exception'),
+      h('h4', 'QueryParams decode exception'),
       div([
-        button({ click: () => navigate('success') }, 'Navigate success'),
-        button({ click: () => navigate('exception') }, 'Navigate exception'),
+        button(
+          {
+            *click() {
+              yield* navigate('success');
+            },
+          },
+          'Navigate success',
+        ),
+        button(
+          {
+            *click() {
+              yield* navigate('exception');
+            },
+          },
+          'Navigate exception',
+        ),
       ]),
-      p([strong('Parsed value: '), modeQueryParams.mode()]),
-      exception
-        ? p([
+      p([strong('Parsed value: '), () => String(modeQueryParams().mode)]),
+      ifBlock(
+        modeQueryParams.hasParseException,
+        () =>
+          p([
             strong('Exception: '),
-            `${exception.code} (received: ${exception.payload.received})`,
-          ])
-        : p([strong('Exception: '), 'none']),
+            () => {
+              const exception = modeQueryParams.exceptions().parse.mode as {
+                code: string;
+                payload: { error: unknown };
+              };
+              return `${exception.code}: ${exception.payload.error}`;
+            },
+          ]),
+        () => p([strong('Exception: '), 'none']),
+      ),
     ]);
   },
 );

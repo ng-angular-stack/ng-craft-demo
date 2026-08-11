@@ -1,4 +1,3 @@
-import type { ActivatedRoute, Router } from '@angular/router';
 import { loadCraftComponent } from '@craft-ng/component';
 import {
   assertExhaustiveRouteExceptions,
@@ -10,10 +9,20 @@ import {
   type ComponentDepsOf,
   type CraftRouteExceptionType,
   type RouteCheckedDI,
+  type ViewTransitionPayloadDef,
 } from '@craft-ng/core';
 import { authGuard } from './guard/auth.guard';
+import { paginationQueryParams } from './query-params.utils';
+import type { AppProvidedNames, AppProvidedValues } from './app.config';
 
+// SOURCE DE VÉRITÉ DES ROUTES DE LA DÉMO.
+// À FAIRE : ajouter ou modifier les routes dans ce fichier et conserver les
+// marqueurs `demo-route` / `demo-route-end` autour de chaque route.
+// À NE PAS FAIRE : créer un fichier `app.routes.source.ts` ou laisser l'outil
+// de lancement réécrire ce fichier. Le sélecteur génère uniquement
+// `app.routes.runtime.ts` à partir de cette collection.
 export const { demoRoutes } = craftRoutes('demo', [
+  /* demo-route: query */
   {
     path: 'query/:userId',
     ...loadCraftComponent(({ withRetry }) =>
@@ -22,6 +31,20 @@ export const { demoRoutes } = craftRoutes('demo', [
       ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: debounced-web-search */
+  {
+    path: 'debounced-web-search',
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(
+        import(
+          './examples/primitives/debounced-web-search/debounced-web-search'
+        ),
+      ).then(({ default: component }) => component),
+    ),
+  },
+
+  /* demo-route-end */ /* demo-route: slow-page */
   {
     path: 'slow-page',
     loadChildren: ({ withRetry }) =>
@@ -29,6 +52,8 @@ export const { demoRoutes } = craftRoutes('demo', [
         (module) => module.slowPageRoutes,
       ),
   },
+
+  /* demo-route-end */ /* demo-route: view-transitions */
   {
     path: 'view-transitions',
     loadChildren: ({ withRetry }) =>
@@ -36,6 +61,8 @@ export const { demoRoutes } = craftRoutes('demo', [
         import('./examples/routes/view-transitions/view-transitions.routes'),
       ).then((module) => module.viewTransitionsRoutes),
   },
+
+  /* demo-route-end */ /* demo-route: home */
   {
     path: '',
     ...loadCraftComponent(({ withRetry }) =>
@@ -44,14 +71,45 @@ export const { demoRoutes } = craftRoutes('demo', [
       ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: component-composition */
   {
-    path: 'mutation/:userId',
+    path: 'component-composition',
     ...loadCraftComponent(({ withRetry }) =>
-      withRetry(import('./examples/primitives/mutation/mutation')).then(
-        ({ default: component }) => component,
+      withRetry(import('./examples/component/component-composition-demo')).then(
+        ({ componentCompositionDemo }) => componentCompositionDemo,
       ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: content-projection */
+  {
+    path: 'content-projection',
+    ...loadCraftComponent(({ withRetry }) =>
+      withRetry(import('./examples/component/content-projection-demo')).then(
+        ({ contentProjectionDemo }) => contentProjectionDemo,
+      ),
+    ),
+  },
+
+  /* demo-route-end */ /* demo-route: mutation */
+  craftRoute(
+    'mutation/:userId',
+    {
+      ...loadCraftComponent(({ withRetry }) =>
+        withRetry(import('./examples/primitives/mutation/mutation')).then(
+          ({ default: component }) => component,
+        ),
+      ),
+    },
+    {
+      UNEXPECTED_ERROR: craftExceptionHandler(function* ({ globalError }) {
+        return globalError();
+      }),
+    },
+  ),
+
+  /* demo-route-end */ /* demo-route: list-with-pagination */
   {
     path: 'list-with-pagination',
     ...loadCraftComponent(({ withRetry }) =>
@@ -62,6 +120,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ).then(({ default: component }) => component),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: granular-mutation */
   {
     path: 'granular-mutation',
     ...loadCraftComponent(({ withRetry }) =>
@@ -70,6 +130,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ).then(({ default: component }) => component),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: full-demo */
   {
     path: 'full-demo',
     ...loadCraftComponent(({ withRetry }) =>
@@ -78,6 +140,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: pixel-art */
   {
     path: 'pixel-art',
     ...loadCraftComponent(({ withRetry }) =>
@@ -86,6 +150,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: pixel-art-matrix */
   {
     path: 'pixel-art-matrix',
     ...loadCraftComponent(({ withRetry }) =>
@@ -94,6 +160,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ).then(({ default: component }) => component),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: exceptions */
   {
     path: 'exceptions',
     ...loadCraftComponent(({ withRetry }) =>
@@ -102,6 +170,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: exception-query-params */
   {
     path: 'exception-query-params',
     ...loadCraftComponent(({ withRetry }) =>
@@ -110,6 +180,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ).then(({ default: component }) => component),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: craft-query */
   {
     path: 'craft/query/:userId',
     ...loadCraftComponent(({ withRetry }) =>
@@ -118,6 +190,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: craft-mutation */
   {
     path: 'craft/mutation/:userId',
     ...loadCraftComponent(({ withRetry }) =>
@@ -126,6 +200,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: craft-list-with-pagination */
   {
     path: 'craft/list-with-pagination',
     ...loadCraftComponent(({ withRetry }) =>
@@ -134,6 +210,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ).then(({ default: component }) => component),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: craft-granular-mutation */
   {
     path: 'craft/granular-mutation',
     ...loadCraftComponent(({ withRetry }) =>
@@ -142,6 +220,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ).then(({ default: component }) => component),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: craft-full-demo */
   {
     path: 'craft/full-demo',
     ...loadCraftComponent(({ withRetry }) =>
@@ -150,6 +230,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: craft-lazy-layout */
   {
     path: 'craft/lazy-layout/:teamId',
     data: { someParentRouteData: 'foo' },
@@ -163,6 +245,8 @@ export const { demoRoutes } = craftRoutes('demo', [
         (module) => module.lazyLayoutRoutes,
       ),
   },
+
+  /* demo-route-end */ /* demo-route: login-form */
   {
     path: 'login-form',
     ...loadCraftComponent(({ withRetry }) =>
@@ -171,6 +255,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: craft-service-counter */
   {
     path: 'craft-service/counter',
     ...loadCraftComponent(({ withRetry }) =>
@@ -179,14 +265,35 @@ export const { demoRoutes } = craftRoutes('demo', [
       ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: craft-service-register-for */
   {
-    path: 'craft-service/user-detail',
+    path: 'craft-service/register-for',
     ...loadCraftComponent(({ withRetry }) =>
-      withRetry(
-        import('./examples/craft-service/craft-service-user-detail'),
-      ).then(({ default: component }) => component),
+      withRetry(import('./examples/craft-service/register-for')).then(
+        ({ default: component }) => component,
+      ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: craft-service-user-detail */
+  craftRoute(
+    'craft-service/user-detail',
+    {
+      ...loadCraftComponent(({ withRetry }) =>
+        withRetry(
+          import('./examples/craft-service/craft-service-user-detail'),
+        ).then(({ default: component }) => component),
+      ),
+    },
+    {
+      UNEXPECTED_ERROR: craftExceptionHandler(function* ({ globalError }) {
+        return globalError();
+      }),
+    },
+  ),
+
+  /* demo-route-end */ /* demo-route: demo-send-context */
   {
     path: 'demo-send-context',
     ...loadCraftComponent(({ withRetry }) =>
@@ -195,6 +302,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ).then(({ default: component }) => component),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: playground */
   {
     path: 'playground',
     ...loadCraftComponent(({ withRetry }) =>
@@ -203,6 +312,8 @@ export const { demoRoutes } = craftRoutes('demo', [
       ),
     ),
   },
+
+  /* demo-route-end */ /* demo-route: query-params */
   {
     path: 'query-params',
     ...loadCraftComponent(({ withRetry }) =>
@@ -213,23 +324,20 @@ export const { demoRoutes } = craftRoutes('demo', [
       ).then(({ default: component }) => component),
     ),
     queryParams: function* () {
-      const { pagination } = yield* queryParams(
+      const pagination = yield* queryParams(
         'pagination',
-        {
-          state: {
-            page: { fallbackValue: 1, parse: Number, serialize: String },
-            pageSize: { fallbackValue: 4, parse: Number, serialize: String },
-          },
-        },
+        paginationQueryParams(),
         ({ patch, state }) => ({
           nextPage: () => patch({ page: state().page + 1 }),
-          previousPage: () => patch({ page: state().page - 1 }),
+          previousPage: () => patch({ page: Math.max(1, state().page - 1) }),
           updatePageSize: (pageSize: number) => patch({ pageSize, page: 1 }),
         }),
       );
       return pagination;
     },
   },
+
+  /* demo-route-end */ /* demo-route: guard-demo */
   craftRoute(
     'guard-demo',
     {
@@ -251,16 +359,68 @@ export const { demoRoutes } = craftRoutes('demo', [
       }),
     },
   ),
+  /* demo-route-end */
 ]);
+
+export const demoEnabledRoutePaths: ReadonlySet<string> = new Set(
+  demoRoutes.META_PATHS.map(({ path }) => path),
+);
+
+// Keep navigation links type-safe even when the serve prompt excludes some
+// routes from the build. This slim registry is intentionally independent from
+// the selected runtime collection.
+type DemoRoutePath =
+  | ''
+  | 'query/:userId'
+  | 'debounced-web-search'
+  | 'slow-page'
+  | 'view-transitions'
+  | 'view-transitions/:photoId'
+  | 'component-composition'
+  | 'content-projection'
+  | 'mutation/:userId'
+  | 'list-with-pagination'
+  | 'granular-mutation'
+  | 'full-demo'
+  | 'pixel-art'
+  | 'pixel-art-matrix'
+  | 'exceptions'
+  | 'exception-query-params'
+  | 'craft/query/:userId'
+  | 'craft/mutation/:userId'
+  | 'craft/list-with-pagination'
+  | 'craft/granular-mutation'
+  | 'craft/full-demo'
+  | 'craft/lazy-layout/:teamId/users/:userId'
+  | 'login-form'
+  | 'craft-service/counter'
+  | 'craft-service/register-for'
+  | 'craft-service/user-detail'
+  | 'demo-send-context'
+  | 'playground'
+  | 'query-params'
+  | 'guard-demo';
+type DemoRoutePaths = readonly {
+  [Path in DemoRoutePath]: Path extends 'view-transitions/:photoId'
+    ? {
+        path: Path;
+        viewTransition: ViewTransitionPayloadDef<{
+          name: string;
+          image: string | null;
+        }>;
+      }
+    : { path: Path };
+}[DemoRoutePath][];
 
 declare module '@craft-ng/core' {
   interface CraftRouterRoutesRegistry {
-    Demo: typeof demoRoutes.META_PATHS;
+    Demo: DemoRoutePaths;
   }
 }
 
 assertExhaustiveRouteExceptions(demoRoutes);
 
+/* demo-check: guard-registry */
 declare module '@craft-ng/core' {
   interface CraftGlobalExceptionRegistry {
     'guard-demo': {
@@ -270,21 +430,36 @@ declare module '@craft-ng/core' {
         'USER_DISABLED'
       >;
     };
+    'mutation/:userId': {
+      UNEXPECTED_ERROR: CraftRouteExceptionType<
+        typeof demoRoutes,
+        'mutation/:userId',
+        'UNEXPECTED_ERROR'
+      >;
+    };
+    'craft-service/user-detail': {
+      UNEXPECTED_ERROR: CraftRouteExceptionType<
+        typeof demoRoutes,
+        'craft-service/user-detail',
+        'UNEXPECTED_ERROR'
+      >;
+    };
   }
 }
-
+/* demo-check-end */
 type DemoRouteCheckedDI<
   Component,
   RouteInputs extends string = never,
   Context extends string = 'demo route component',
 > = RouteCheckedDI<
   ComponentDepsOf<Component>,
-  'CraftRouter',
-  Router | ActivatedRoute,
+  AppProvidedNames | 'CraftRouter' | 'CraftActivatedRoute',
+  AppProvidedValues,
   Context,
   RouteInputs
 >;
 
+/* demo-check: query */
 type _CanRunQuery = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/primitives/query/query'))['default'],
@@ -292,6 +467,17 @@ type _CanRunQuery = CanRun<
     'path: "query/:userId"'
   >
 >;
+/* demo-check-end */
+/* demo-check: debounced-web-search */
+type _CanRunDebouncedWebSearch = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/primitives/debounced-web-search/debounced-web-search'))['default'],
+    never,
+    'path: "debounced-web-search"'
+  >
+>;
+/* demo-check-end */
+/* demo-check: home */
 type _CanRunComponentDemo = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/component/component-demo'))['componentDemo'],
@@ -299,6 +485,17 @@ type _CanRunComponentDemo = CanRun<
     'path: ""'
   >
 >;
+/* demo-check-end */
+/* demo-check: content-projection */
+type _CanRunContentProjection = CanRun<
+  DemoRouteCheckedDI<
+    (typeof import('./examples/component/content-projection-demo'))['contentProjectionDemo'],
+    never,
+    'path: "content-projection"'
+  >
+>;
+/* demo-check-end */
+/* demo-check: mutation */
 type _CanRunMutation = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/primitives/mutation/mutation'))['default'],
@@ -306,6 +503,8 @@ type _CanRunMutation = CanRun<
     'path: "mutation/:userId"'
   >
 >;
+/* demo-check-end */
+/* demo-check: list-with-pagination */
 type _CanRunListWithPagination = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/primitives/list-with-pagination/list-with-pagination'))['default'],
@@ -313,6 +512,8 @@ type _CanRunListWithPagination = CanRun<
     'path: "list-with-pagination"'
   >
 >;
+/* demo-check-end */
+/* demo-check: granular-mutation */
 type _CanRunGranularMutation = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/primitives/granular-mutation/granular-mutation'))['default'],
@@ -320,6 +521,8 @@ type _CanRunGranularMutation = CanRun<
     'path: "granular-mutation"'
   >
 >;
+/* demo-check-end */
+/* demo-check: full-demo */
 type _CanRunFullDemo = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/primitives/full-demo/full-demo'))['default'],
@@ -327,6 +530,8 @@ type _CanRunFullDemo = CanRun<
     'path: "full-demo"'
   >
 >;
+/* demo-check-end */
+/* demo-check: pixel-art */
 type _CanRunPixelArt = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/primitives/pixel-art/pixel-art'))['default'],
@@ -334,6 +539,8 @@ type _CanRunPixelArt = CanRun<
     'path: "pixel-art"'
   >
 >;
+/* demo-check-end */
+/* demo-check: pixel-art-matrix */
 type _CanRunPixelArtMatrix = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/primitives/pixel-art-matrix/pixel-art-matrix'))['default'],
@@ -341,6 +548,8 @@ type _CanRunPixelArtMatrix = CanRun<
     'path: "pixel-art-matrix"'
   >
 >;
+/* demo-check-end */
+/* demo-check: exceptions */
 type _CanRunExceptions = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/primitives/exceptions/exceptions'))['default'],
@@ -348,6 +557,8 @@ type _CanRunExceptions = CanRun<
     'path: "exceptions"'
   >
 >;
+/* demo-check-end */
+/* demo-check: exception-query-params */
 type _CanRunExceptionQueryParams = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/primitives/exceptions/exception-query-params'))['default'],
@@ -355,6 +566,8 @@ type _CanRunExceptionQueryParams = CanRun<
     'path: "exception-query-params"'
   >
 >;
+/* demo-check-end */
+/* demo-check: craft-query */
 type _CanRunCraftQuery = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/craft/query/query'))['default'],
@@ -362,6 +575,8 @@ type _CanRunCraftQuery = CanRun<
     'path: "craft/query/:userId"'
   >
 >;
+/* demo-check-end */
+/* demo-check: craft-mutation */
 type _CanRunCraftMutation = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/craft/mutation/mutation'))['default'],
@@ -369,6 +584,8 @@ type _CanRunCraftMutation = CanRun<
     'path: "craft/mutation/:userId"'
   >
 >;
+/* demo-check-end */
+/* demo-check: craft-list-with-pagination */
 type _CanRunCraftListWithPagination = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/craft/list-with-pagination/list-with-pagination'))['default'],
@@ -376,6 +593,8 @@ type _CanRunCraftListWithPagination = CanRun<
     'path: "craft/list-with-pagination"'
   >
 >;
+/* demo-check-end */
+/* demo-check: craft-granular-mutation */
 type _CanRunCraftGranularMutation = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/craft/granular-mutation/granular-mutation'))['default'],
@@ -383,6 +602,8 @@ type _CanRunCraftGranularMutation = CanRun<
     'path: "craft/granular-mutation"'
   >
 >;
+/* demo-check-end */
+/* demo-check: craft-full-demo */
 type _CanRunCraftFullDemo = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/craft/full-demo/full-demo'))['default'],
@@ -390,6 +611,8 @@ type _CanRunCraftFullDemo = CanRun<
     'path: "craft/full-demo"'
   >
 >;
+/* demo-check-end */
+/* demo-check: craft-lazy-layout */
 type _CanRunLazyLayout = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/craft/lazy-layout/lazy-layout'))['default'],
@@ -397,6 +620,8 @@ type _CanRunLazyLayout = CanRun<
     'path: "craft/lazy-layout/:teamId"'
   >
 >;
+/* demo-check-end */
+/* demo-check: login-form */
 type _CanRunLoginForm = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/primitives/forms/login-form'))['default'],
@@ -404,6 +629,8 @@ type _CanRunLoginForm = CanRun<
     'path: "login-form"'
   >
 >;
+/* demo-check-end */
+/* demo-check: craft-service-counter */
 type _CanRunCraftServiceCounter = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/craft-service/craft-service-counter'))['default'],
@@ -411,6 +638,8 @@ type _CanRunCraftServiceCounter = CanRun<
     'path: "craft-service/counter"'
   >
 >;
+/* demo-check-end */
+/* demo-check: craft-service-user-detail */
 type _CanRunCraftServiceUserDetail = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/craft-service/craft-service-user-detail'))['default'],
@@ -418,6 +647,8 @@ type _CanRunCraftServiceUserDetail = CanRun<
     'path: "craft-service/user-detail"'
   >
 >;
+/* demo-check-end */
+/* demo-check: demo-send-context */
 type _CanRunDemoSendContext = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/ia/demo-send-context/demo-send-context'))['default'],
@@ -425,6 +656,8 @@ type _CanRunDemoSendContext = CanRun<
     'path: "demo-send-context"'
   >
 >;
+/* demo-check-end */
+/* demo-check: playground */
 type _CanRunPlayground = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/playground/playground'))['default'],
@@ -432,6 +665,8 @@ type _CanRunPlayground = CanRun<
     'path: "playground"'
   >
 >;
+/* demo-check-end */
+/* demo-check: query-params */
 type _CanRunQueryParams = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/routes/list-with-pagination/qp-list-with-pagination'))['default'],
@@ -439,6 +674,8 @@ type _CanRunQueryParams = CanRun<
     'path: "query-params"'
   >
 >;
+/* demo-check-end */
+/* demo-check: guard-demo */
 type _CanRunGuardDemo = CanRun<
   DemoRouteCheckedDI<
     (typeof import('./examples/routes/guard-demo/GuardDemo'))['GuardDemo'],
@@ -446,7 +683,9 @@ type _CanRunGuardDemo = CanRun<
     'path: "guard-demo"'
   >
 >;
+/* demo-check-end */
 
+/* demo-check: child-mount-shared */
 type ChildMountCheckedDI<
   ChildRoutes,
   ParentPath extends string,
@@ -457,16 +696,21 @@ type ChildMountCheckedDI<
     ? true
     : [`Child routes pinned to "${Mount}" cannot mount at "${ParentPath}"`]
   : ['Expected a Craft routes collection'];
+/* demo-check-end */
 
+/* demo-check: view-transitions-mount */
 type _CanRunViewTransitionsMount = CanRun<
   ChildMountCheckedDI<
     (typeof import('./examples/routes/view-transitions/view-transitions.routes'))['viewTransitionsRoutes'],
     'view-transitions'
   >
 >;
+/* demo-check-end */
+/* demo-check: craft-lazy-layout-mount */
 type _CanRunLazyLayoutMount = CanRun<
   ChildMountCheckedDI<
     (typeof import('./examples/craft/lazy-layout/lazy-layout.routes'))['lazyLayoutRoutes'],
     'craft/lazy-layout/:teamId'
   >
 >;
+/* demo-check-end */

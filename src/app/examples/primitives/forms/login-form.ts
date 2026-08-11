@@ -1,41 +1,66 @@
-import { computed, signal } from '@angular/core';
+import { computed } from '@angular/core';
 import {
   button,
   craftComponent,
   div,
   form,
   h2,
+  ifBlock,
   input,
   label,
   p,
 } from '@craft-ng/component';
-import { componentMonitoring, provideHostName } from '@craft-ng/core';
+import { craftComputed, insertStatePipe, state } from '@craft-ng/core';
 
 const LoginFormComponent = craftComponent(
   'LoginFormComponent',
   {
-    providers: [provideHostName('component:LoginFormComponent')],
     styles: `
-      :scope{max-width:420px;display:grid;gap:1rem;padding:2rem;border:1px solid #e2e8f0;border-radius:12px}.login-field{display:grid;gap:.35rem}input{padding:.75rem;border:1px solid #cbd5e1;border-radius:6px}.login-error{color:#b91c1c}
+      :scope{box-sizing:border-box;max-width:420px;display:grid;gap:1rem;margin:2rem auto;padding:2rem;border:1px solid #e2e8f0;border-radius:12px;color:#1e293b;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.08)}
+      :scope h2{margin:0;color:#0f172a}.login-field{display:grid;gap:.35rem}.login-field label{font-weight:600;color:#334155}input{box-sizing:border-box;width:100%;padding:.75rem;border:1px solid #cbd5e1;border-radius:6px;background:#fff}.login-error{margin:0;color:#b91c1c}.login-field + .login-error{margin-top:.25rem}
+      :scope button{justify-self:start;padding:.65rem 1rem;border:0;border-radius:6px;color:#fff;background:#2563eb;font-weight:600;cursor:pointer}.login-field:focus-within input{border-color:#2563eb;outline:2px solid #bfdbfe;outline-offset:1px}
     `,
   },
-  () => {
-    componentMonitoring();
-    const email = signal('');
-    const password = signal('');
-    const submitted = signal(false);
-    const valid = computed(
+  function* () {
+    const email = yield* state('email', '', ({ set }) => ({
+      setEmail: (value: string) => set(value),
+    }));
+    const password = yield* state('password', '', ({ set }) => ({
+      setPassword: (value: string) => set(value),
+    }));
+    const valid = craftComputed(
+      'valid',
       () => email().includes('@') && password().length >= 6,
     );
-    const submit = () => submitted.set(true);
-    return { email, password, submitted, valid, submit };
+    const submitted = yield* state(
+      'submitted',
+      false,
+      insertStatePipe(
+        ({ set }) => ({ submit: () => set(true) }),
+        ({ state }) => ({ showError: computed(() => state() && !valid()) }),
+        ({ state }) => ({ showSuccess: computed(() => state() && valid()) }),
+      ),
+    );
+    const showError = submitted.showError;
+    const showSuccess = submitted.showSuccess;
+    return {
+      email,
+      password,
+      submitted,
+      valid,
+      showError,
+      showSuccess,
+      submit: submitted.submit,
+      setEmail: email.setEmail,
+      setPassword: password.setPassword,
+    };
   },
-  ({ email, password, submitted, valid, submit }) =>
+  ({ email, password, submit, setEmail, setPassword, showError, showSuccess }) =>
     form(
       {
-        submit: (event) => {
+        *submit(event) {
           event.preventDefault();
-          submit();
+          yield* submit();
         },
       },
       [
@@ -45,9 +70,10 @@ const LoginFormComponent = craftComponent(
           input({
             id: 'email',
             type: 'email',
-            value: email(),
-            input: (event) =>
-              email.set((event.target as HTMLInputElement).value),
+            value: () => email(),
+            *input(event) {
+              yield* setEmail((event.target as HTMLInputElement).value);
+            },
           }),
         ]),
         div({ class: 'login-field' }, [
@@ -55,18 +81,21 @@ const LoginFormComponent = craftComponent(
           input({
             id: 'password',
             type: 'password',
-            value: password(),
-            input: (event) =>
-              password.set((event.target as HTMLInputElement).value),
+            value: () => password(),
+            *input(event) {
+              yield* setPassword((event.target as HTMLInputElement).value);
+            },
           }),
         ]),
-        submitted() && !valid()
-          ? p(
+        ifBlock(
+          showError,
+          () =>
+            p(
               { class: 'login-error' },
               'Enter a valid email and a password of at least 6 characters.',
-            )
-          : [],
-        submitted() && valid() ? p('✅ Login form submitted.') : [],
+            ),
+        ),
+        ifBlock(showSuccess, () => p('✅ Login form submitted.')),
         button({ type: 'submit' }, 'Sign in'),
       ],
     ),

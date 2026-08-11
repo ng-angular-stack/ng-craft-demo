@@ -1,15 +1,10 @@
 import { button, craftComponent, div, h2, p } from '@craft-ng/component';
-import {
-  componentMonitoring,
-  craftService,
-  provideHostName,
-  state,
-} from '@craft-ng/core';
+import { craftService, state } from '@craft-ng/core';
 
 const { Counter, provideCounter } = craftService(
   { name: 'Counter', scope: 'toProvide' },
   function* () {
-    const { counter } = yield* state('counter', 0, ({ update, set }) => ({
+    const counter = yield* state('counter', 0, ({ update, set }) => ({
       increment: () => update((value) => value + 1),
       decrement: () => update((value) => value - 1),
       reset: () => set(0),
@@ -21,10 +16,7 @@ const { Counter, provideCounter } = craftService(
 const CraftServiceCounterComponent = craftComponent(
   'CraftServiceCounterComponent',
   {
-    providers: [
-      provideCounter(),
-      provideHostName('component:CraftServiceCounterComponent'),
-    ],
+    providers: [provideCounter()],
     styles: `
       :scope{display:flex;flex-direction:column;align-items:center;gap:16px;padding:32px;font-family:sans-serif}
       .value{font-size:3rem;font-weight:bold;margin:0}
@@ -33,13 +25,12 @@ const CraftServiceCounterComponent = craftComponent(
     `,
   },
   function* () {
-    componentMonitoring();
     return { counter: yield* Counter() };
   },
   ({ counter }) =>
     div([
       h2('craftService Counter (toProvide scope)'),
-      p({ class: 'value' }, counter()),
+      p({ class: 'value' }, () => counter()),
       div({ class: 'actions' }, [
         button({ click: counter.decrement }, '-'),
         button({ click: counter.reset }, 'Reset'),

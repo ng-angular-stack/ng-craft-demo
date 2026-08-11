@@ -1,19 +1,20 @@
+import styles from './query.css' with { loader: 'text' };
 import {
   button,
   craftComponent,
   div,
-  h,
+  ifBlock,
   p,
+  pre,
   type Input,
 } from '@craft-ng/component';
 import {
-  componentMonitoring,
   Console,
+  craftComputed,
   craftMethod,
   CraftRouter,
   craftService,
-  insertLocalStoragePersister,
-  provideHostName,
+  insertStoragePersister,
   query,
 } from '@craft-ng/core';
 import { StatusComponent } from '../../../ui/status.component';
@@ -22,7 +23,7 @@ import { ApiService } from './api.service';
 const { UserQuery } = craftService(
   { name: 'UserQuery', scope: 'global' },
   function* (inputs: { userId: () => string | undefined }) {
-    return (yield* query(
+    return yield* query(
       'userQuery',
       {
         params: inputs.userId,
@@ -31,25 +32,27 @@ const { UserQuery } = craftService(
           return yield* ApiService.getItemById(params);
         },
       },
-      insertLocalStoragePersister({
+      insertStoragePersister({
         storeName: 'demo-app-craft',
         key: 'user-query',
       }),
-    )).userQuery;
+    );
   },
 );
 
 const CraftGlobalQuery = craftComponent(
   'CraftGlobalQuery',
-  { providers: [provideHostName('component:CraftGlobalQuery')] },
+  {
+    stylesUrl: styles,
+  },
   function* (userId: Input<string | undefined>) {
-    componentMonitoring();
     const user = yield* UserQuery({ userId: () => userId() });
+
     const router = yield* CraftRouter(undefined, ({ navigate }) => ({
       navigate,
     }));
-    const { navigate } = craftMethod('navigate', function* (offset: number) {
-      // todo yield le router ici directement
+
+    const navigate = craftMethod('navigate', function* (offset: number) {
       void router.navigate({
         to: 'craft/query/:userId',
         params: {
@@ -57,17 +60,41 @@ const CraftGlobalQuery = craftComponent(
         },
       });
     });
-    return { user, navigate };
+    const hasUser = craftComputed('hasUser', () => user.hasValue());
+    return { user, hasUser, navigate };
   },
-  ({ user, navigate }) => [
+  ({ user, hasUser, navigate }) => [
     div([
       'User ',
       StatusComponent({ status: () => user.status() }),
-      user.hasValue() ? h('pre', JSON.stringify(user.value(), null, 2)) : [],
+      ifBlock(hasUser, () =>
+        pre('QueryValue', {}, () => JSON.stringify(user.value(), null, 2)),
+      ),
     ]),
     p('Reload the page to retrieve the query result from the cache.'),
-    button({ click: () => void navigate(-1) }, 'Previous user'),
-    button({ click: () => void navigate(1) }, 'Next user'),
+    div(
+      { class: 'query-actions' },
+      [
+        button(
+          'GoToPreviousUser',
+          {
+            *click() {
+              yield* navigate(-1);
+            },
+          },
+          'Previous user',
+        ),
+        button(
+          'GoToNextUser',
+          {
+            *click() {
+              yield* navigate(1);
+            },
+          },
+          'Next user',
+        ),
+      ],
+    ),
   ],
 );
 

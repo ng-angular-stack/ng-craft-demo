@@ -1,18 +1,19 @@
+import styles from './query.css' with { loader: 'text' };
+import { computed } from '@angular/core';
 import {
   button,
   craftComponent,
   div,
-  h,
+  ifBlock,
   p,
+  pre,
   type Input,
 } from '@craft-ng/component';
 import {
-  componentMonitoring,
-  Console,
   craftMethod,
   CraftRouter,
-  insertLocalStoragePersister,
-  provideHostName,
+  insertStoragePersister,
+  insertQueryPipe,
   query,
 } from '@craft-ng/core';
 import { StatusComponent } from '../../../ui/status.component';
@@ -21,63 +22,76 @@ import { ApiService } from './api.service';
 const GlobalQuery = craftComponent(
   'GlobalQuery',
   {
-    providers: [provideHostName('component:GlobalQuery')],
+    stylesUrl: styles,
   },
   function* (userId: Input<string | undefined>) {
-    componentMonitoring();
-    yield* Console.info('[query-demo] route input received', {
-      userId: userId(),
-    });
-    const { userQuery } = yield* query(
+    const userQuery = yield* query(
       'userQuery',
       {
         params: userId,
+        preservePreviousValue: () => true,
         loader: function* ({ params }) {
-          yield* Console.info('[query-demo] loader started', {
-            inputUserId: userId(),
-            params,
-          });
-          const userPromise = yield* ApiService.getItemById(params);
-          yield* Console.info('[query-demo] loader request created', {
-            params,
-          });
-          return userPromise;
+          return yield* ApiService.getItemById(params);
         },
       },
-      insertLocalStoragePersister({
-        storeName: 'demo-app',
-        key: 'user-query',
-      }),
+      insertQueryPipe(
+        ({ resource }) => ({ hasUser: computed(() => resource.hasValue()) }),
+        insertStoragePersister({
+          storeName: 'demo-app',
+          key: 'user-query',
+        }),
+      ),
     );
     const router = yield* CraftRouter(undefined, ({ navigate }) => ({
       navigate,
     }));
-    const { navigate } = craftMethod('navigate', function* (offset: number) {
+    const navigateNext = craftMethod('navigateNext', function* () {
       const currentUserId = userId();
-      const targetUserId = String(Number(currentUserId ?? '0') + offset);
-      yield* Console.info('[query-demo] navigation requested', {
-        currentUserId,
-        offset,
-        targetUserId,
-      });
+      const targetUserId = String(Number(currentUserId ?? '0') + 1);
       void router.navigate({
         to: 'query/:userId',
         params: { userId: targetUserId },
       });
     });
-    return { userQuery, navigate };
+    const navigatePrevious = craftMethod('navigatePrevious', function* () {
+      const currentUserId = userId();
+      const targetUserId = String(Number(currentUserId ?? '0') - 1);
+      void router.navigate({
+        to: 'query/:userId',
+        params: { userId: targetUserId },
+      });
+    });
+    return { userQuery, navigateNext, navigatePrevious };
   },
-  ({ userQuery, navigate }) => [
+  ({ userQuery, navigateNext, navigatePrevious }) => [
     div([
       'User ',
       StatusComponent({ status: () => userQuery.status() }),
-      userQuery.hasValue()
-        ? h('pre', JSON.stringify(userQuery.value(), null, 2))
-        : [],
+      ifBlock(userQuery.hasUser, () =>
+        pre('QueryValue', {}, () => JSON.stringify(userQuery.value(), null, 2)),
+      ),
     ]),
     p('Reload the page to retrieve the query result from the cache.'),
-    button({ click: () => void navigate(-1) }, 'Previous user'),
-    button({ click: () => void navigate(1) }, 'Next user'),
+    div({ class: 'query-actions' }, [
+      button(
+        'GoToPreviousUser',
+        {
+          *click() {
+            yield* navigatePrevious();
+          },
+        },
+        'Previous user',
+      ),
+      button(
+        'GoToNextUser',
+        {
+          *click() {
+            yield* navigateNext();
+          },
+        },
+        'Next user',
+      ),
+    ]),
   ],
 );
 
