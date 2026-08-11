@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "update": "npm i @craft-ng/core@latest",
+    "update": "npm i @craft-ng/core@latest @craft-ng/component@latest @craft-ng/dev-tools@latest",
     "lint": "eslint . --fix",
     "lint:check": "eslint ."
   },
