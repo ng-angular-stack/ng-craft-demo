@@ -1,8 +1,8 @@
-import { computed } from '@angular/core';
 import {
   button,
   craftComponent,
   div,
+  fieldExceptionBlock,
   form,
   h2,
   ifBlock,
@@ -10,7 +10,26 @@ import {
   label,
   p,
 } from '@craft-ng/component';
-import { craftComputed, insertStatePipe, state } from '@craft-ng/core';
+import {
+  cEmail,
+  cMinLength,
+  cRequired,
+  craftComputed,
+  CraftFieldDirective,
+  insertForm,
+  insertFormAttributes,
+  insertFormSubmit,
+  insertNoopTypingAnchor,
+  insertSelectFormTree,
+  mutation,
+  state,
+  type ValidatedFormValue,
+} from '@craft-ng/core';
+
+type LoginData = {
+  email: string;
+  password: string;
+};
 
 const LoginFormComponent = craftComponent(
   'LoginFormComponent',
@@ -22,45 +41,46 @@ const LoginFormComponent = craftComponent(
     `,
   },
   function* () {
-    const email = yield* state('email', '', ({ set }) => ({
-      setEmail: (value: string) => set(value),
-    }));
-    const password = yield* state('password', '', ({ set }) => ({
-      setPassword: (value: string) => set(value),
-    }));
-    const valid = craftComputed(
-      'valid',
-      () => email().includes('@') && password().length >= 6,
-    );
-    const submitted = yield* state(
-      'submitted',
-      false,
-      insertStatePipe(
-        ({ set }) => ({ submit: () => set(true) }),
-        ({ state }) => ({ showError: computed(() => state() && !valid()) }),
-        ({ state }) => ({ showSuccess: computed(() => state() && valid()) }),
+    const submitted = yield* mutation('submitted', {
+      method: (value: NonNullable<ValidatedFormValue<LoginData>>) => value,
+      loader: ({ params }) => params,
+    });
+    const loginForm = yield* state(
+      'loginForm',
+      { email: '', password: '' } satisfies LoginData,
+      insertForm(
+        insertFormSubmit(submitted),
+        insertSelectFormTree(
+          'email',
+          insertNoopTypingAnchor,
+          insertFormAttributes(() => ({
+            validators: [cRequired(), cEmail()],
+          })),
+        ),
+        insertSelectFormTree(
+          'password',
+          insertNoopTypingAnchor,
+          insertFormAttributes(() => ({
+            validators: [cRequired(), cMinLength({ minLength: 6 })],
+          })),
+        ),
+        ({ field }) => ({
+          showSuccess: craftComputed(
+            'showSuccess',
+            () => submitted.hasValue() && field.valid(),
+          ),
+        }),
       ),
     );
-    const showError = submitted.showError;
-    const showSuccess = submitted.showSuccess;
-    return {
-      email,
-      password,
-      submitted,
-      valid,
-      showError,
-      showSuccess,
-      submit: submitted.submit,
-      setEmail: email.setEmail,
-      setPassword: password.setPassword,
-    };
+    return loginForm;
   },
-  ({ email, password, submit, setEmail, setPassword, showError, showSuccess }) =>
+  (loginForm) =>
+    // exceptions are volontary handled at different place for demo reasons
     form(
       {
         *submit(event) {
           event.preventDefault();
-          yield* submit();
+          yield* loginForm.form.submit();
         },
       },
       [
@@ -70,34 +90,41 @@ const LoginFormComponent = craftComponent(
           input({
             id: 'email',
             type: 'email',
-            value: () => email(),
-            *input(event) {
-              yield* setEmail((event.target as HTMLInputElement).value);
-            },
-          }),
+          }).pipe(CraftFieldDirective(loginForm.form.selectEmail())),
         ]),
         div({ class: 'login-field' }, [
           label({ htmlFor: 'password' }, 'Password'),
           input({
             id: 'password',
             type: 'password',
-            value: () => password(),
-            *input(event) {
-              yield* setPassword((event.target as HTMLInputElement).value);
-            },
-          }),
-        ]),
-        ifBlock(
-          showError,
-          () =>
-            p(
-              { class: 'login-error' },
-              'Enter a valid email and a password of at least 6 characters.',
+          })
+            .pipe(CraftFieldDirective(loginForm.form.selectPassword()))
+            .pipe(
+              fieldExceptionBlock.partial({
+                required: () =>
+                  p({ class: 'login-error' }, 'Password is required.'),
+              }),
             ),
+        ]),
+        ifBlock(loginForm.form.showSuccess, () =>
+          p('✅ Login form submitted.'),
         ),
-        ifBlock(showSuccess, () => p('✅ Login form submitted.')),
         button({ type: 'submit' }, 'Sign in'),
       ],
+    ).pipe(
+      fieldExceptionBlock.exhaustive({
+        email: {
+          required: () => p({ class: 'login-error' }, 'Email is required.'),
+          email: () => p({ class: 'login-error' }, 'Enter a valid email.'),
+        },
+        password: {
+          minLength: ({ exception }) =>
+            p(
+              { class: 'login-error' },
+              `Use at least ${exception.payload} characters.`,
+            ),
+        },
+      }),
     ),
 );
 
