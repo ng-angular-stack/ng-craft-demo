@@ -22,6 +22,7 @@ import {
   provideFnWrapper,
   provideTakeAppSnapshot,
   withCraftViewTransitions,
+  withA11yNavigationFocus,
   withErrorComponent,
   withRouteLoadError,
   withTransitionTimings,
@@ -77,6 +78,7 @@ export const appConfig = craftAppConfig({
       // shared-element morph survives the non-blocking guard/resolve chain.
       // Showcased by the `view-transitions` demo (tile → skeleton → detail hero).
       withCraftViewTransitions(),
+      withA11yNavigationFocus(),
       withErrorComponent({
         component: CraftGlobalErrorComponentHost,
       }),
